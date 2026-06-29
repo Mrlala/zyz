@@ -30,7 +30,7 @@ function getToken() {
  * 获取设备 ID（首次调用自动生成并持久化）
  * @returns {string}
  */
-function getDeviceId() {
+export function getDeviceId() {
   let deviceId = storage.get(DEVICE_ID_KEY)
   if (!deviceId) {
     deviceId = `web_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
