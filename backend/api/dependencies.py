@@ -47,9 +47,14 @@ def get_current_user(
     if user_id is None:
         return None
     try:
-        return db.get(User, int(user_id))
+        user_id_int = int(user_id)
     except (ValueError, TypeError):
         return None
+    # 使用显式 SELECT 以避免 session 缓存问题
+    user = db.execute(
+        select(User).where(User.id == user_id_int)
+    ).scalar_one_or_none()
+    return user
 
 
 def get_current_user_required(
