@@ -1,0 +1,51 @@
+/**
+ * uni-app 全局样式变量
+ * 与后端 SRS 视觉规范对齐
+ */
+
+/* 品牌色 */
+$uni-color-primary: #4F46E5;        // 靛蓝
+$uni-color-success: #10B981;        // 翠绿
+$uni-color-warning: #F59E0B;        // 琥珀
+$uni-color-error: #EF4444;          // 红
+
+/* 背景与文字 */
+$uni-bg-color: #F9FAFB;             // 页面背景
+$uni-text-color: #1F2937;           // 主文字
+$uni-text-color-grey: #6B7280;      // 次级文字
+$uni-text-color-placeholder: #9CA3AF;
+$uni-border-color: #E5E7EB;
+
+/* 圆角与阴影 */
+$uni-border-radius-sm: 8rpx;
+$uni-border-radius: 12rpx;
+$uni-border-radius-lg: 16rpx;
+$uni-border-radius-full: 999rpx;
+$uni-box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.08);
+
+/* 间距 */
+$uni-spacing-row-sm: 8rpx;
+$uni-spacing-row-base: 16rpx;
+$uni-spacing-row-lg: 24rpx;
+$uni-spacing-row-xl: 32rpx;
+$uni-spacing-col-sm: 12rpx;
+$uni-spacing-col-base: 24rpx;
+$uni-spacing-col-lg: 32rpx;
+$uni-spacing-col-xl: 48rpx;
+
+/* 字号 */
+$uni-font-size-xs: 20rpx;
+$uni-font-size-sm: 24rpx;
+$uni-font-size-base: 28rpx;
+$uni-font-size-lg: 32rpx;
+$uni-font-size-title: 36rpx;
+$uni-font-size-xxl: 44rpx;
+
+/* 品牌色衍生 */
+$uni-color-primary-light: #6366F1;
+$uni-color-primary-dark: #4338CA;
+
+/* 风险等级色 */
+$uni-risk-low: #10B981;
+$uni-risk-medium: #F59E0B;
+$uni-risk-high: #EF4444;

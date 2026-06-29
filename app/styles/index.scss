@@ -1,0 +1,139 @@
+/**
+ * 全局样式入口
+ * App.vue 中通过 @import 引入，作用于所有页面
+ */
+
+@import './variables.scss';
+@import './reset.scss';
+
+/* ============ 通用容器 ============ */
+.page-container {
+  min-height: 100vh;
+  background-color: $bg-page;
+}
+
+.card {
+  background-color: $bg-card;
+  border-radius: $border-radius;
+  box-shadow: $shadow-base;
+  padding: $spacing-md;
+}
+
+/* ============ 文本辅助类 ============ */
+.text-primary { color: $color-primary; }
+.text-success { color: $color-success; }
+.text-warning { color: $color-warning; }
+.text-danger  { color: $color-danger; }
+.text-secondary { color: $text-secondary; }
+.text-placeholder { color: $text-placeholder; }
+
+.text-sm { font-size: $font-size-sm; }
+.text-base { font-size: $font-size-base; }
+.text-lg { font-size: $font-size-lg; }
+.text-xl { font-size: $font-size-xl; }
+.text-bold { font-weight: 600; }
+
+/* ============ 间距辅助类 ============ */
+.mt-xs { margin-top: $spacing-xs; }
+.mt-sm { margin-top: $spacing-sm; }
+.mt-md { margin-top: $spacing-md; }
+.mt-lg { margin-top: $spacing-lg; }
+.mt-xl { margin-top: $spacing-xl; }
+
+.mb-xs { margin-bottom: $spacing-xs; }
+.mb-sm { margin-bottom: $spacing-sm; }
+.mb-md { margin-bottom: $spacing-md; }
+.mb-lg { margin-bottom: $spacing-lg; }
+
+.pt-sm { padding-top: $spacing-sm; }
+.pt-md { padding-top: $spacing-md; }
+.pb-sm { padding-bottom: $spacing-sm; }
+.pb-md { padding-bottom: $spacing-md; }
+
+.px-md { padding-left: $spacing-md; padding-right: $spacing-md; }
+.py-md { padding-top: $spacing-md; padding-bottom: $spacing-md; }
+.p-md  { padding: $spacing-md; }
+
+/* ============ Flex 布局 ============ */
+.flex { display: flex; }
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.flex-start {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+.flex-end {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+.flex-col {
+  display: flex;
+  flex-direction: column;
+}
+.flex-1 { flex: 1; }
+.flex-wrap { flex-wrap: wrap; }
+
+/* ============ 按钮通用 ============ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 $spacing-lg;
+  height: 80rpx;
+  border-radius: $border-radius;
+  font-size: $font-size-base;
+  font-weight: 500;
+  transition: opacity 0.2s;
+}
+.btn-primary {
+  background-color: $color-primary;
+  color: #FFFFFF;
+}
+.btn-outline {
+  background-color: transparent;
+  border: 2rpx solid $color-primary;
+  color: $color-primary;
+}
+.btn-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* ============ 风险等级标签 ============ */
+.risk-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4rpx $spacing-sm;
+  border-radius: $border-radius-full;
+  font-size: $font-size-sm;
+  line-height: 1.4;
+}
+.risk-badge-low {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: $risk-low;
+}
+.risk-badge-medium {
+  background-color: rgba(245, 158, 11, 0.1);
+  color: $risk-medium;
+}
+.risk-badge-high {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: $risk-high;
+}
+
+/* ============ 分割线 ============ */
+.divider {
+  height: 2rpx;
+  background-color: $border-color-light;
+  margin: $spacing-md 0;
+}

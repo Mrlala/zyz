@@ -1,0 +1,132 @@
+{
+  "easycom": {
+    "autoscan": true,
+    "custom": {
+      "^u-(.*)": "uview-ui/components/u-$1/u-$1.vue"
+    }
+  },
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "翻译"
+      }
+    },
+    {
+      "path": "pages/hot/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "热词"
+      }
+    },
+    {
+      "path": "pages/dict/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "词条"
+      }
+    },
+    {
+      "path": "pages/mine/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "我的"
+      }
+    },
+    {
+      "path": "pages/word-detail/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "词条详情"
+      }
+    },
+    {
+      "path": "pages/hot/learn",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "热词学习"
+      }
+    },
+    {
+      "path": "pages/hot/ranking",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "热词排行"
+      }
+    },
+    {
+      "path": "pages/dict/search",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "搜索词条"
+      }
+    },
+    {
+      "path": "pages/dict/category",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "分类词条"
+      }
+    },
+    {
+      "path": "pages/mine/favorites",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "我的收藏"
+      }
+    },
+    {
+      "path": "pages/mine/history",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "学习历史"
+      }
+    },
+    {
+      "path": "pages/mine/settings",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "设置"
+      }
+    },
+    {
+      "path": "pages/mine/submissions",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "我的提交"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationStyle": "custom",
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "中译中",
+    "navigationBarBackgroundColor": "#FFFFFF",
+    "backgroundColor": "#F9FAFB"
+  },
+  "tabBar": {
+    "color": "#9CA3AF",
+    "selectedColor": "#4F46E5",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "翻译"
+      },
+      {
+        "pagePath": "pages/hot/index",
+        "text": "热词"
+      },
+      {
+        "pagePath": "pages/dict/index",
+        "text": "词条"
+      },
+      {
+        "pagePath": "pages/mine/index",
+        "text": "我的"
+      }
+    ]
+  }
+}

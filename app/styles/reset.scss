@@ -1,0 +1,98 @@
+/**
+ * 样式重置
+ * 基础元素样式归零，统一默认外观
+ */
+
+/* 全局 box-sizing */
+view, text, scroll-view, swiper, input, textarea, button, image {
+  box-sizing: border-box;
+}
+
+/* 去除默认外边距 */
+page, view, text, scroll-view, swiper, swiper-item, input, textarea {
+  margin: 0;
+  padding: 0;
+}
+
+/* 默认字体 */
+page {
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue',
+    Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
+    Arial, sans-serif;
+  font-size: 28rpx;
+  color: #1F2937;
+  background-color: #F9FAFB;
+  line-height: 1.5;
+}
+
+/* 文本默认继承 */
+text {
+  color: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+/* 链接样式 */
+navigator, a {
+  color: #4F46E5;
+  text-decoration: none;
+}
+
+/* 图片默认 block */
+image {
+  display: block;
+  max-width: 100%;
+}
+
+/* 输入框默认外观 */
+input, textarea {
+  font-size: 28rpx;
+  color: #1F2937;
+  background: transparent;
+}
+input::placeholder, textarea::placeholder {
+  color: #9CA3AF;
+}
+
+/* 按钮重置 */
+button {
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  font-size: 28rpx;
+  color: inherit;
+  line-height: inherit;
+}
+button::after {
+  border: none;
+}
+
+/* 滚动容器 */
+scroll-view {
+  box-sizing: border-box;
+}
+
+/* 清除浮动 */
+.clearfix::after {
+  content: '';
+  display: block;
+  clear: both;
+}
+
+/* 单行省略 */
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 多行省略（默认 2 行） */
+.ellipsis-2 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
