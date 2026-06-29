@@ -17,6 +17,6 @@ class BaseResponse(BaseModel):
     :param data: 业务数据，错误时为 None
     """
 
-    code: int = 200
+    code: int = 0
     message: str = "success"
     data: Any = None
