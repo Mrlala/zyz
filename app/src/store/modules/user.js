@@ -61,7 +61,12 @@ export const useUserStore = defineStore('user', () => {
     const deviceId = getDeviceId()
     const data = await userApi.login({ device_id: deviceId })
     token.value = data.token
-    await fetchProfile()
+    // 拉取 profile 失败不影响登录态生效
+    try {
+      await fetchProfile()
+    } catch (e) {
+      console.warn('登录后拉取 profile 失败，稍后重试', e)
+    }
     persist()
     return data
   }
