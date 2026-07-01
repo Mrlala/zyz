@@ -31,7 +31,7 @@
 
     <!-- 快捷入口 -->
     <view class="drawer__quick-links">
-      <view class="drawer__quick-link" @click="handleNavigate('/pages/mine/history?type=translate')">
+      <view class="drawer__quick-link" @click="handleNavigate('/pages/mine/history')">
         <History :size="16" color="#6B7280" />
         <text class="drawer__quick-link-text">浏览历史</text>
       </view>

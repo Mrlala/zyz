@@ -207,15 +207,17 @@ async function handleSubmit() {
 /* ============ 头像网格 ============ */
 .avatar-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, 56px);
   gap: 12px;
+  justify-content: center;
 
   &__item {
     position: relative;
+    width: 56px;
+    height: 56px;
     display: flex;
     align-items: center;
     justify-content: center;
-    aspect-ratio: 1;
     border-radius: 50%;
     background-color: $bg-card;
     border: 2px solid transparent;
@@ -227,8 +229,8 @@ async function handleSubmit() {
   }
 
   &__circle {
-    width: 48px;
-    height: 48px;
+    width: 100%;
+    height: 100%;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -236,7 +238,7 @@ async function handleSubmit() {
   }
 
   &__emoji {
-    font-size: 28px;
+    font-size: 26px;
   }
 
   &__check {

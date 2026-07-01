@@ -205,7 +205,13 @@ function goHot() {
 }
 
 function handleBack() {
-  uni.navigateBack({ delta: 1 })
+  const pages = getCurrentPages()
+  if (pages.length > 1) {
+    uni.navigateBack({ delta: 1 })
+  } else {
+    // 无返回栈时回首页
+    uni.reLaunch({ url: '/pages/index/index' })
+  }
 }
 
 // 格式化时间戳为可读时间
