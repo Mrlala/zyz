@@ -14,23 +14,23 @@
     <view class="top-bar-placeholder" :style="{ height: (statusBarHeight + 54) + 'px' }"></view>
 
     <view class="history-body">
-      <!-- 翻译历史（本地存储） -->
+      <!-- 翻译历史（本地会话列表） -->
       <template v-if="isTranslate">
         <view
-          v-for="(item, idx) in translateRecords"
-          :key="idx"
+          v-for="item in translateSessions"
+          :key="item.id"
           class="history-card"
-          @click="retranslate(item)"
+          @click="restoreSession(item)"
         >
-          <text class="history-card__text">{{ item.text }}</text>
+          <text class="history-card__text">{{ item.title }}</text>
           <view class="history-card__footer">
-            <text class="history-card__mode">{{ item.mode === 'dict' ? '词典' : '中译中' }}</text>
-            <text class="history-card__time">{{ formatTime(item.created_at) }}</text>
+            <text class="history-card__mode">{{ item.messages.length }}条对话</text>
+            <text class="history-card__time">{{ formatTime(item.updated_at) }}</text>
           </view>
         </view>
 
         <!-- 翻译历史空状态 -->
-        <view v-if="!translateRecords.length" class="empty-state">
+        <view v-if="!translateSessions.length" class="empty-state">
           <view class="empty-state__icon">
             <RotateCcw :size="32" color="#9CA3AF" />
           </view>
@@ -110,8 +110,10 @@ const loading = ref(false)
 
 // 是否翻译历史
 const isTranslate = computed(() => type.value === 'translate')
-// 翻译历史记录（来自 store）
-const translateRecords = computed(() => translateStore.history)
+// 翻译会话列表（来自 store，按更新时间倒序）
+const translateSessions = computed(() =>
+  [...(translateStore.sessions || [])].sort((a, b) => b.updated_at - a.updated_at)
+)
 
 onLoad((options) => {
   try {
@@ -166,11 +168,11 @@ function loadMore() {
 function handleClear() {
   uni.showModal({
     title: '提示',
-    content: isTranslate.value ? '确定清空翻译历史？' : '确定清空浏览历史？',
+    content: isTranslate.value ? '确定清空全部翻译会话？' : '确定清空浏览历史？',
     success: (res) => {
       if (res.confirm) {
         if (isTranslate.value) {
-          translateStore.clearHistory()
+          translateStore.clearAllSessions()
           uni.showToast({ title: '已清空', icon: 'success' })
         }
       }
@@ -178,15 +180,10 @@ function handleClear() {
   })
 }
 
-// 重新翻译（修复失效 switchTab → reLaunch）
-function retranslate(item) {
-  uni.reLaunch({
-    url: '/pages/index/index',
-    success: () => {
-      // 通知首页填入文本
-      uni.$emit('translate:fill', item.text)
-    }
-  })
+// 恢复某个会话：跳回首页并选中该会话
+function restoreSession(item) {
+  translateStore.selectSession(item.id)
+  uni.reLaunch({ url: '/pages/index/index' })
 }
 
 // 跳转词条详情

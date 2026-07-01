@@ -45,6 +45,14 @@
             <ChevronRight :size="16" color="#C0C4CC" />
           </view>
         </view>
+        <view class="group-divider"></view>
+        <!-- 我的成就 -->
+        <view class="group-row" @click="goAchievements">
+          <text class="group-row__label">我的成就</text>
+          <view class="group-row__right">
+            <ChevronRight :size="16" color="#C0C4CC" />
+          </view>
+        </view>
       </view>
 
       <!-- 分组2 偏好设置 -->
@@ -103,12 +111,6 @@
             ></view>
             <text class="group-row__value">{{ aiStatus.text }}</text>
           </view>
-        </view>
-        <view class="group-divider"></view>
-        <!-- 我的成就 -->
-        <view class="group-row" @click="goAchievements">
-          <text class="group-row__label">我的成就</text>
-          <ChevronRight :size="16" color="#C0C4CC" />
         </view>
         <view class="group-divider"></view>
         <!-- 隐私政策 -->

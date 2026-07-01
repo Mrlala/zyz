@@ -19,9 +19,9 @@
       :style="{ height: 'calc(100vh - ' + (statusBarHeight + 54) + 'px - 72px)' }"
       :scroll-into-view="scrollAnchor"
     >
-      <!-- 空状态 -->
+      <!-- 空状态：当前会话无消息 -->
       <view
-        v-if="!translateStore.currentResult && !translateStore.isLoading"
+        v-if="translateStore.isEmpty"
         class="chat-empty"
         :style="{ minHeight: 'calc(100vh - ' + (statusBarHeight + 54 + 72) + 'px - 32px)' }"
       >
@@ -40,36 +40,39 @@
         </view>
       </view>
 
-      <!-- 加载状态 -->
-      <view v-else-if="translateStore.isLoading" class="chat-loading">
-        <view class="chat-loading__spinner"></view>
-        <view class="chat-loading__text">正在把黑话翻译成人话...</view>
-      </view>
+      <!-- 消息列表 -->
+      <template v-else>
+        <view
+          v-for="(msg, idx) in translateStore.currentMessages"
+          :key="idx"
+        >
+          <!-- 用户消息气泡 -->
+          <view v-if="msg.role === 'user'" class="chat-user-msg">
+            <view class="chat-user-msg__bubble">{{ msg.text }}</view>
+          </view>
 
-      <!-- 对话结果 -->
-      <view v-else-if="translateStore.currentResult" class="chat-result">
-        <!-- 用户消息气泡 -->
-        <view class="chat-user-msg">
-          <view class="chat-user-msg__bubble">
-            {{ translateStore.currentResult.original_text }}
+          <!-- 助手回复 -->
+          <view v-else class="chat-result">
+            <view class="chat-result__header">
+              {{ modeLabel(msg.mode) }} · {{ formatMsgTime(msg.created_at) }}
+            </view>
+            <ResultCards
+              :result="msg.result"
+              @keywordClick="handleKeywordClick"
+              @relatedClick="handleRelatedClick"
+              @copy="handleCopy"
+              @feedback="handleFeedback"
+              @favorite="handleFavorite"
+            />
           </view>
         </view>
 
-        <!-- 系统结果头 -->
-        <view class="chat-result__header">
-          {{ modeLabel(translateStore.currentResult.mode) }} · 刚刚
+        <!-- 加载状态 -->
+        <view v-if="translateStore.isLoading" class="chat-loading">
+          <view class="chat-loading__spinner"></view>
+          <view class="chat-loading__text">正在把黑话翻译成人话...</view>
         </view>
-
-        <!-- 结构化结果卡片 -->
-        <ResultCards
-          :result="translateStore.currentResult"
-          @keywordClick="handleKeywordClick"
-          @relatedClick="handleRelatedClick"
-          @copy="handleCopy"
-          @feedback="handleFeedback"
-          @favorite="handleFavorite"
-        />
-      </view>
+      </template>
 
       <view id="chat-bottom-anchor" class="chat-body__anchor"></view>
     </scroll-view>
@@ -130,7 +133,7 @@
       :open="drawerOpen"
       @close="drawerOpen = false"
       @navigate="handleNavigate"
-      @selectHistory="handleSelectHistory"
+      @selectSession="handleSelectSession"
       @newChat="handleNewChat"
     />
   </view>
@@ -220,19 +223,18 @@ onUnload(() => {
 // 切换模式
 function switchMode(m) {
   translateStore.setMode(m)
-  translateStore.clearResult()
 }
 
-// 新对话
+// 新对话：创建新会话
 function handleNewChat() {
   inputText.value = ''
-  translateStore.clearResult()
+  translateStore.newSession()
   drawerOpen.value = false
 }
 
-// 右上角+号：空状态提示已在新对话，有结果则创建新对话
+// 右上角+号：空会话提示已在新对话，有消息则创建新对话
 function handleHeaderNewChat() {
-  if (!translateStore.currentResult && !translateStore.isLoading) {
+  if (translateStore.isEmpty && !translateStore.isLoading) {
     uni.showToast({ title: '已在新对话中', icon: 'none' })
     return
   }
@@ -287,8 +289,8 @@ function handleCopy(text) {
 
 // 反馈：accurate 直接提交；inaccurate 弹输入框收集备注后提交
 function handleFeedback(type) {
-  const result = translateStore.currentResult
-  if (!result || !result.translation_id) return
+  const msg = lastAssistantMsg.value
+  if (!msg || !msg.translation_id) return
 
   if (type === 'inaccurate') {
     uni.showModal({
@@ -308,9 +310,10 @@ function handleFeedback(type) {
 
 // 提交反馈到后端
 function submitFeedback(type, comment) {
-  const result = translateStore.currentResult
+  const msg = lastAssistantMsg.value
+  if (!msg || !msg.translation_id) return
   feedbackApi.submitFeedback({
-    translation_id: result.translation_id,
+    translation_id: msg.translation_id,
     type,
     comment: comment || undefined
   }).then(() => {
@@ -322,15 +325,15 @@ function submitFeedback(type, comment) {
 
 // 收藏/取消收藏翻译结果（D12）
 async function handleFavorite() {
-  const result = translateStore.currentResult
-  if (!result || !result.translation_id) {
+  const msg = lastAssistantMsg.value
+  if (!msg || !msg.translation_id) {
     uni.showToast({ title: '暂无可收藏的结果', icon: 'none' })
     return
   }
   try {
-    const data = await userApi.toggleTranslationFavorite(result.translation_id)
-    // 同步更新 store 中的收藏状态，驱动 UI 切换
-    result.is_translation_favorited = !!data?.is_favorited
+    const data = await userApi.toggleTranslationFavorite(msg.translation_id)
+    // 同步更新消息中的收藏状态
+    msg.result.is_translation_favorited = !!data?.is_favorited
     uni.showToast({ title: data?.message || '操作成功', icon: 'success' })
   } catch (err) {
     console.error('收藏失败', err)
@@ -359,11 +362,28 @@ function handlePopoverNavigate(url) {
   }, 200)
 }
 
-// 选择历史记录
-function handleSelectHistory(item) {
+// 选择（恢复）某个会话
+function handleSelectSession(sessionId) {
+  translateStore.selectSession(sessionId)
   drawerOpen.value = false
-  inputText.value = item.text
-  handleTranslate()
+  inputText.value = ''
+  // 滚到底部
+  nextTick(() => {
+    scrollAnchor.value = ''
+    nextTick(() => {
+      scrollAnchor.value = 'chat-bottom-anchor'
+    })
+  })
+}
+
+// 格式化消息时间
+function formatMsgTime(ts) {
+  if (!ts) return '刚刚'
+  const diff = Date.now() - ts
+  if (diff < 60000) return '刚刚'
+  if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前'
+  if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前'
+  return Math.floor(diff / 86400000) + '天前'
 }
 </script>
 

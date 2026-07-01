@@ -29,20 +29,29 @@
       <text class="drawer__new-chat-text">新对话</text>
     </view>
 
-    <!-- 滚动内容区：只保留最近对话 -->
+    <!-- 快捷入口 -->
+    <view class="drawer__quick-links">
+      <view class="drawer__quick-link" @click="handleNavigate('/pages/mine/history?type=translate')">
+        <History :size="16" color="#6B7280" />
+        <text class="drawer__quick-link-text">浏览历史</text>
+      </view>
+    </view>
+
+    <!-- 滚动内容区：最近会话 -->
     <scroll-view scroll-y class="drawer__content">
       <view class="drawer__group-title">最近对话</view>
       <view class="drawer__menu">
         <view
-          v-for="(item, idx) in recentHistory"
-          :key="idx"
-          class="drawer__menu-item drawer__menu-item--history"
-          @click="handleSelectHistory(item)"
+          v-for="item in recentSessions"
+          :key="item.id"
+          class="drawer__menu-item"
+          :class="{ 'drawer__menu-item--active': item.id === translateStore.currentSessionId }"
+          @click="handleSelectSession(item)"
         >
-          <text class="drawer__menu-text drawer__menu-text--history">{{ item.text }}</text>
-          <text class="drawer__menu-time">{{ formatTime(item.created_at) }}</text>
+          <text class="drawer__menu-text">{{ item.title }}</text>
+          <text class="drawer__menu-time">{{ formatTime(item.updated_at) }}</text>
         </view>
-        <view v-if="!recentHistory.length" class="drawer__empty">暂无历史对话</view>
+        <view v-if="!recentSessions.length" class="drawer__empty">暂无历史对话</view>
       </view>
     </scroll-view>
 
@@ -113,8 +122,8 @@ function handleNavigate(url) {
   emit('navigate', url)
 }
 
-function handleSelectHistory(item) {
-  emit('selectHistory', item)
+function handleSelectSession(item) {
+  emit('selectSession', item.id)
 }
 
 function formatTime(ts) {
@@ -229,6 +238,28 @@ function formatTime(ts) {
 
   &__new-chat-text {
     font-size: 14px;
+    color: $text-secondary;
+  }
+
+  &__quick-links {
+    display: flex;
+    gap: 8px;
+    margin: 0 20px 8px;
+  }
+
+  &__quick-link {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 12px;
+    border-radius: 8px;
+    background-color: $bg-sunken;
+  }
+
+  &__quick-link-text {
+    font-size: 13px;
     color: $text-secondary;
   }
 
