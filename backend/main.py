@@ -27,6 +27,8 @@ app.add_middleware(
 # 操作日志中间件：记录 /api/manage/* 请求到审计日志
 app.add_middleware(OperationLogMiddleware)
 
+# 注：prometheus_fastapi_instrumentator 与新版 FastAPI _IncludedRouter 不兼容，暂时移除
+
 # 注册业务路由（SDD 4.5 全部 33 个接口 + 后台管理 manage 接口）
 app.include_router(api_router, prefix="/api")
 
