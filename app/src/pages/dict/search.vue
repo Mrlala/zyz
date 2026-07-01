@@ -99,6 +99,7 @@ import { ref, computed } from 'vue'
 import { onLoad, onReachBottom } from '@dcloudio/uni-app'
 import { ArrowLeft, Search, X } from 'lucide-vue-next'
 import WordCard from '@/components/word/WordCard.vue'
+import EmptyState from '@/components/dict/EmptyState.vue'
 import * as wordApi from '@/api/word'
 import * as hotApi from '@/api/hot'
 import { useUserStore } from '@/store/modules/user'
@@ -418,44 +419,6 @@ function handleBack() {
       background-color: rgba(245, 158, 11, 0.15);
       color: $color-warning;
     }
-  }
-}
-
-/* ============ 空状态 ============ */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 80px 0 40px;
-
-  &__icon {
-    width: 56px;
-    height: 56px;
-    border-radius: 16px;
-    background-color: $bg-sunken;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 12px;
-  }
-
-  &__text {
-    font-size: 14px;
-    color: $text-secondary;
-    margin-bottom: 4px;
-  }
-
-  &__btn {
-    margin-top: 16px;
-    padding: 8px 20px;
-    border-radius: 9999px;
-    background-color: $color-primary;
-  }
-
-  &__btn-text {
-    font-size: 13px;
-    font-weight: 500;
-    color: #FFFFFF;
   }
 }
 

@@ -1,48 +1,68 @@
 <template>
-  <view class="word-card" @click="handleCardClick">
-    <view class="word-card__main">
-      <view class="word-card__header">
-        <text class="word-card__word">{{ word.word }}</text>
-        <view class="word-card__tags">
-          <WordTag
-            v-if="categoryText"
-            type="category"
-            :text="categoryText"
-          />
-          <RiskBadge :level="word.risk_level || word.risk" />
+  <view
+    class="word-card"
+    :class="`word-card--${variant}`"
+    @click="handleCardClick"
+  >
+    <!-- featured 变体：左侧渐变色条 -->
+    <view v-if="variant === 'featured'" class="word-card__bar"></view>
+
+    <view class="word-card__body">
+      <view class="word-card__main">
+        <view class="word-card__header">
+          <text class="word-card__word">{{ word.word }}</text>
+          <view class="word-card__tags">
+            <WordTag
+              v-if="categoryText"
+              type="category"
+              :text="categoryText"
+            />
+            <RiskBadge :level="word.risk_level || word.risk" />
+            <!-- featured 变体：热度徽章 -->
+            <view v-if="variant === 'featured' && heatText" class="word-card__heat">
+              <Flame :size="11" color="#F59E0B" />
+              <text class="word-card__heat-text">{{ heatText }}</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="word-card__meaning">
+          {{ meaningText }}
         </view>
       </view>
 
-      <view class="word-card__meaning">
-        {{ meaningText }}
+      <!-- 右侧收藏按钮 -->
+      <view
+        class="word-card__fav"
+        @click.stop="handleFavClick"
+      >
+        <Heart
+          :size="20"
+          :color="isFavorited ? '#FE2C55' : '#D1D5DB'"
+          :fill="isFavorited ? '#FE2C55' : 'none'"
+        />
       </view>
-    </view>
-
-    <!-- 右侧收藏按钮 -->
-    <view
-      class="word-card__fav"
-      @click.stop="handleFavClick"
-    >
-      <Heart
-        :size="20"
-        :color="isFavorited ? '#FE2C55' : '#D1D5DB'"
-        :fill="isFavorited ? '#FE2C55' : 'none'"
-      />
     </view>
   </view>
 </template>
 
 <script setup>
 import { computed } from 'vue'
-import { Heart } from 'lucide-vue-next'
+import { Heart, Flame } from 'lucide-vue-next'
 import WordTag from './WordTag.vue'
 import RiskBadge from '../common/RiskBadge.vue'
 
 const props = defineProps({
-  // 词条对象：含 word / meaning / category / risk_level 等
+  // 词条对象：含 word / meaning / category / risk_level / hot_score 等
   word: {
     type: Object,
     default: () => ({})
+  },
+  // 卡片变体：default 常规 / featured 精选（渐变色条 + 热度徽章）
+  variant: {
+    type: String,
+    default: 'default',
+    validator: (v) => ['default', 'featured'].includes(v)
   }
 })
 
@@ -63,6 +83,14 @@ const meaningText = computed(() => {
   return props.word.meaning || props.word.definition || props.word.summary || ''
 })
 
+// 热度文案
+const heatText = computed(() => {
+  const score = props.word.hot_score || props.word.hotness || props.word.hot || 0
+  if (!score) return ''
+  if (score >= 10000) return (score / 10000).toFixed(1) + 'w'
+  return String(score)
+})
+
 function handleCardClick() {
   emit('click', props.word)
 }
@@ -75,16 +103,44 @@ function handleFavClick() {
 <style lang="scss" scoped>
 .word-card {
   display: flex;
-  align-items: center;
   background-color: $bg-card;
   border-radius: 12px;
-  box-shadow: $shadow-sm;
-  padding: 12px 16px;
-  margin-bottom: 8px;
   transition: transform 0.2s;
 
   &:active {
     transform: scale(0.98);
+  }
+
+  /* ---- featured 变体：渐变色条 + 更大阴影 ---- */
+  &--featured {
+    box-shadow: $shadow-sm;
+    overflow: hidden;
+  }
+
+  &--default {
+    align-items: center;
+    box-shadow: $shadow-xs;
+    padding: 12px 16px;
+  }
+
+  /* ---- featured 左侧色条 ---- */
+  &__bar {
+    width: 3px;
+    flex-shrink: 0;
+    background: $gradient-primary;
+  }
+
+  /* ---- 主体（featured 下含色条后的内容区） ---- */
+  &__body {
+    flex: 1;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    min-width: 0;
+
+    .word-card--featured & {
+      padding: 16px;
+    }
   }
 
   &__main {
@@ -104,12 +160,33 @@ function handleFavClick() {
     font-weight: 600;
     color: $text-primary;
     margin-right: 8px;
+
+    .word-card--featured & {
+      font-size: 18px;
+    }
   }
 
   &__tags {
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  /* ---- 热度徽章（仅 featured） ---- */
+  &__heat {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    background-color: rgba(245, 158, 11, 0.12);
+  }
+
+  &__heat-text {
+    font-size: 13px;
+    line-height: 1.4;
+    color: $color-warning;
   }
 
   &__meaning {

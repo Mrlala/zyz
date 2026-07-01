@@ -39,48 +39,25 @@
     </scroll-view>
 
     <!-- 排序条 -->
-    <view class="sort-bar">
-      <view class="sort-bar__tabs">
-        <view
-          v-for="item in sortOptions"
-          :key="item.value"
-          class="sort-bar__tab"
-          :class="{ 'sort-bar__tab--active': sort === item.value }"
-          @click="switchSort(item.value)"
-        >{{ item.label }}</view>
-      </view>
-      <view class="sort-bar__extra" @click="goCategoryList">
-        <text>分类专区</text>
-        <ChevronRight :size="12" color="#FE2C55" />
-      </view>
-    </view>
+    <SortBar v-model="sort" :options="sortOptions">
+      <template #extra>
+        <view class="sort-extra" @click="goCategoryList">
+          <text>分类专区</text>
+          <ChevronRight :size="12" color="#FE2C55" />
+        </view>
+      </template>
+    </SortBar>
 
     <!-- 词条列表 -->
     <view class="word-list">
-      <view
-        v-for="word in words"
+      <WordCard
+        v-for="(word, idx) in words"
         :key="word.id"
-        class="word-card"
-        @click="goDetail(word)"
-      >
-        <view class="word-card__bar"></view>
-        <view class="word-card__body">
-          <view class="word-card__info">
-            <view class="word-card__title-row">
-              <text class="word-card__word">{{ word.word || word.name }}</text>
-              <text v-if="word.category_name || word.category" class="word-card__tag">{{ word.category_name || word.category }}</text>
-            </view>
-            <text class="word-card__definition">{{ word.definition || word.meaning || word.summary || '' }}</text>
-          </view>
-          <view class="word-card__fav" @click.stop="handleFavorite(word)">
-            <Heart
-              :size="18"
-              :color="word.is_favorited ? '#FE2C55' : '#D1D5DB'"
-              :fill="word.is_favorited ? '#FE2C55' : 'none'"
-            />
-          </view>
-        </view>
-      </view>
+        :word="word"
+        :variant="idx < 3 && page === 1 ? 'featured' : 'default'"
+        @click="goDetail"
+        @favorite="handleFavorite"
+      />
 
       <!-- 加载中 -->
       <view v-if="loading && !words.length" class="state-tip">
@@ -88,13 +65,12 @@
       </view>
 
       <!-- 空状态 -->
-      <view v-if="!loading && !words.length" class="empty-state">
-        <view class="empty-state__icon">
-          <BookOpen :size="32" color="#9CA3AF" />
-        </view>
-        <text class="empty-state__text">该分类下暂无词条</text>
-        <text class="empty-state__sub">去其他分类看看</text>
-      </view>
+      <EmptyState
+        v-if="!loading && !words.length"
+        :icon="BookOpen"
+        text="该分类下暂无词条"
+        sub="去其他分类看看"
+      />
 
       <!-- 加载更多 -->
       <view v-if="words.length > 0 && words.length < total" class="load-more" @click="loadMore">
@@ -108,9 +84,12 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, watch } from 'vue'
 import { onLoad, onReachBottom, onPullDownRefresh } from '@dcloudio/uni-app'
-import { ChevronLeft, Search, ChevronRight, Heart, BookOpen } from 'lucide-vue-next'
+import { ChevronLeft, Search, ChevronRight, BookOpen } from 'lucide-vue-next'
+import WordCard from '@/components/word/WordCard.vue'
+import SortBar from '@/components/dict/SortBar.vue'
+import EmptyState from '@/components/dict/EmptyState.vue'
 import * as wordApi from '@/api/word'
 import * as categoryApi from '@/api/category'
 import { useUserStore } from '@/store/modules/user'
@@ -132,6 +111,9 @@ const sortOptions = [
   { label: '最新', value: 'new' },
   { label: '名称', value: 'name' }
 ]
+
+// 排序变化时重新拉取
+watch(sort, () => fetchWords(true))
 
 onLoad(() => {
   try {
@@ -195,12 +177,6 @@ function loadMore() {
 function switchCategory(id) {
   if (activeCategoryId.value === id) return
   activeCategoryId.value = id
-  fetchWords(true)
-}
-
-function switchSort(value) {
-  if (sort.value === value) return
-  sort.value = value
   fetchWords(true)
 }
 
@@ -337,39 +313,14 @@ function handleBack() {
   }
 }
 
-/* ============ 排序条 ============ */
-.sort-bar {
+/* ============ 排序条额外内容 ============ */
+.sort-extra {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 8px 16px;
-
-  &__tabs {
-    display: flex;
-    gap: 16px;
-  }
-
-  &__tab {
-    font-size: 13px;
-    color: $text-secondary;
-    padding-bottom: 2px;
-    border-bottom: 2px solid transparent;
-
-    &--active {
-      color: $text-primary;
-      font-weight: 500;
-      border-bottom-color: $color-primary;
-    }
-  }
-
-  &__extra {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    font-size: 12px;
-    font-weight: 500;
-    color: $color-primary;
-  }
+  gap: 2px;
+  font-size: 12px;
+  font-weight: 500;
+  color: $color-primary;
 }
 
 /* ============ 词条列表 ============ */
@@ -380,114 +331,12 @@ function handleBack() {
   gap: 8px;
 }
 
-.word-card {
-  display: flex;
-  border-radius: 12px;
-  overflow: hidden;
-  background-color: $bg-card;
-  box-shadow: $shadow-xs;
-
-  &__bar {
-    width: 3px;
-    flex-shrink: 0;
-    background: linear-gradient(180deg, #FE2C55, #25F4EE);
-  }
-
-  &__body {
-    flex: 1;
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    padding: 14px 16px;
-    min-width: 0;
-  }
-
-  &__info {
-    flex: 1;
-    min-width: 0;
-  }
-
-  &__title-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  &__word {
-    font-size: 16px;
-    font-weight: 600;
-    color: $text-primary;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  &__tag {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    padding: 2px 8px;
-    border-radius: 9999px;
-    font-size: 10px;
-    background-color: $bg-sunken;
-    color: $text-tertiary;
-    white-space: nowrap;
-  }
-
-  &__definition {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    overflow: hidden;
-    margin-top: 6px;
-    font-size: 13px;
-    color: $text-secondary;
-    line-height: 1.5;
-  }
-
-  &__fav {
-    flex-shrink: 0;
-    margin-left: 12px;
-    margin-top: 2px;
-    padding: 4px;
-  }
-}
-
 /* ============ 状态提示 ============ */
 .state-tip {
   padding: 48px 0;
   text-align: center;
   font-size: 14px;
   color: $text-secondary;
-}
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 64px 0;
-
-  &__icon {
-    width: 56px;
-    height: 56px;
-    border-radius: 16px;
-    background-color: $bg-sunken;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 12px;
-  }
-
-  &__text {
-    font-size: 14px;
-    color: $text-secondary;
-    margin-bottom: 4px;
-  }
-
-  &__sub {
-    font-size: 12px;
-    color: $text-tertiary;
-  }
 }
 
 .load-more {

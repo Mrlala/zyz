@@ -26,15 +26,7 @@
       </view>
 
       <!-- 排序条 -->
-      <view class="sort-bar">
-        <view
-          v-for="item in sortOptions"
-          :key="item.value"
-          class="sort-bar__item"
-          :class="{ 'sort-bar__item--active': sort === item.value }"
-          @click="switchSort(item.value)"
-        >{{ item.label }}</view>
-      </view>
+      <SortBar v-model="sort" :options="sortOptions" />
 
       <!-- 词条列表 -->
       <view class="word-list">
@@ -64,10 +56,12 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, watch } from 'vue'
 import { onLoad, onReachBottom, onPullDownRefresh } from '@dcloudio/uni-app'
 import { ArrowLeft, Folder, FolderOpen } from 'lucide-vue-next'
 import WordCard from '@/components/word/WordCard.vue'
+import SortBar from '@/components/dict/SortBar.vue'
+import EmptyState from '@/components/dict/EmptyState.vue'
 import * as categoryApi from '@/api/category'
 import { useUserStore } from '@/store/modules/user'
 
@@ -147,11 +141,8 @@ function loadMore() {
   fetchWords(false)
 }
 
-function switchSort(value) {
-  if (sort.value === value) return
-  sort.value = value
-  fetchWords(true)
-}
+// 排序变化时重新拉取
+watch(sort, () => fetchWords(true))
 
 async function handleFavorite(word) {
   const id = word.id || word.word_id
@@ -263,55 +254,11 @@ function handleBack() {
   }
 }
 
-/* ============ 排序条 ============ */
-.sort-bar {
-  display: flex;
-  align-items: center;
-  padding: 8px 0 12px;
-  border-bottom: 1px solid $border-color-light;
-  margin-bottom: 8px;
-  gap: 16px;
-
-  &__item {
-    font-size: 13px;
-    color: $text-secondary;
-
-    &--active {
-      color: $color-primary;
-      font-weight: 600;
-    }
-  }
-}
-
 /* ============ 词条列表 ============ */
 .word-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-/* ============ 空状态 ============ */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 80px 0 40px;
-
-  &__icon {
-    width: 56px;
-    height: 56px;
-    border-radius: 16px;
-    background-color: $bg-sunken;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 12px;
-  }
-
-  &__text {
-    font-size: 14px;
-    color: $text-secondary;
-  }
 }
 
 /* ============ 加载更多 ============ */
