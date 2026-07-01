@@ -56,6 +56,11 @@
               <template #default="{ row }">{{ formatNumber(row.duration_ms) }}</template>
             </el-table-column>
             <el-table-column prop="ip" label="IP" width="130" />
+            <el-table-column label="操作" width="80" align="center" fixed="right">
+              <template #default="{ row }">
+                <el-button size="small" text type="primary" @click="showDetail(row)">详情</el-button>
+              </template>
+            </el-table-column>
           </el-table>
 
           <el-pagination
@@ -135,11 +140,48 @@
         </div>
       </el-tab-pane>
     </el-tabs>
+
+    <!-- 操作日志详情弹窗 -->
+    <el-dialog
+      v-model="detailDialogVisible"
+      :title="`操作日志详情 #${currentLog?.id ?? ''}`"
+      width="700px"
+      destroy-on-close
+    >
+      <template v-if="currentLog">
+        <h4 class="detail-section-title">基本信息</h4>
+        <el-descriptions :column="2" border size="small">
+          <el-descriptions-item label="时间">{{ formatDateTime(currentLog.created_at) }}</el-descriptions-item>
+          <el-descriptions-item label="操作者">{{ currentLog.username || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="模块">{{ currentLog.module || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="动作">{{ currentLog.action || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="方法">{{ currentLog.method || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="路径">{{ currentLog.path || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="状态码">
+            <el-tag :type="currentLog.status_code < 400 ? 'success' : 'danger'" size="small">
+              {{ currentLog.status_code }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="耗时(ms)">{{ formatNumber(currentLog.duration_ms) }}</el-descriptions-item>
+          <el-descriptions-item label="IP">{{ currentLog.ip || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="UA" :span="2">{{ currentLog.user_agent || '-' }}</el-descriptions-item>
+        </el-descriptions>
+
+        <h4 class="detail-section-title" style="margin-top: 16px">请求参数</h4>
+        <JsonViewer
+          :value="paramsObj"
+          :expand-depth="3"
+          copyable
+          boxed
+          sort
+        />
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Download } from '@element-plus/icons-vue'
 import { auditLogApi } from '@/api/manage'
@@ -167,6 +209,23 @@ const loginDateRange = ref<[string, string] | null>(null)
 
 // 导出
 const exportLoading = ref(false)
+
+// 详情弹窗
+const detailDialogVisible = ref(false)
+const currentLog = ref<any>(null)
+const paramsObj = computed(() => {
+  if (!currentLog.value || !currentLog.value.params) return {}
+  try {
+    return JSON.parse(currentLog.value.params)
+  } catch {
+    return { _parseError: '参数解析失败', raw: currentLog.value.params }
+  }
+})
+
+function showDetail(row: any) {
+  currentLog.value = row
+  detailDialogVisible.value = true
+}
 
 const moduleOptions = ['auth', 'account', 'role', 'word', 'category', 'content', 'ai_config', 'monitor', 'audit']
 
@@ -325,3 +384,12 @@ function downloadCsv(list: any[]) {
 
 onMounted(loadOpLogs)
 </script>
+
+<style scoped lang="scss">
+.detail-section-title {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+}
+</style>

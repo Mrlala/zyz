@@ -133,7 +133,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['keywordClick', 'relatedClick', 'copy', 'feedback'])
+const emit = defineEmits(['keywordClick', 'relatedClick', 'copy', 'feedback', 'favorite', 'followUp'])
 
 const translation = computed(() => props.result.translation || '')
 const keywords = computed(() => props.result.keywords || [])
@@ -166,7 +166,7 @@ function handleFavorite() {
 }
 
 function handleFollowUp() {
-  uni.showToast({ title: '继续追问', icon: 'none' })
+  emit('followUp', props.result)
 }
 
 function handleFeedback(type) {

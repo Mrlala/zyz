@@ -133,6 +133,13 @@ const pageSize = 20
 const total = ref(0)
 const loadingMore = ref(false)
 
+// 翻译结果收藏状态
+const translations = ref([])
+const tLoading = ref(false)
+const tTotal = ref(0)
+const tPage = ref(1)
+const tLoadingMore = ref(false)
+
 const tabs = [
   { label: '词条', value: 'words' },
   { label: '翻译结果', value: 'translate' }
@@ -148,10 +155,14 @@ onLoad(() => {
 })
 
 onShow(() => {
-  fetchFavorites()
+  if (activeTab.value === 'words') {
+    fetchFavorites()
+  } else {
+    fetchTranslationFavorites(true)
+  }
 })
 
-// 获取收藏列表：服务端分页
+// 获取词条收藏列表：服务端分页
 async function fetchFavorites() {
   loading.value = true
   page.value = 1
@@ -168,8 +179,46 @@ async function fetchFavorites() {
   }
 }
 
-// 加载更多
+// 获取翻译结果收藏列表：服务端分页
+async function fetchTranslationFavorites(reset = false) {
+  tLoading.value = true
+  if (reset) {
+    tPage.value = 1
+    translations.value = []
+  }
+  try {
+    const data = await userApi.getTranslationFavorites({ page: tPage.value, page_size: pageSize })
+    const list = data?.list || []
+    translations.value = reset ? list : translations.value.concat(list)
+    tTotal.value = data?.total || 0
+  } catch (err) {
+    console.error('获取翻译收藏失败', err)
+    translations.value = []
+    tTotal.value = 0
+  } finally {
+    tLoading.value = false
+  }
+}
+
+// 翻译结果摘要：从结果 JSON 提取翻译文本，截断 60 字
+function summarizeResult(result) {
+  if (!result) return ''
+  let text = ''
+  if (typeof result === 'string') {
+    try { text = JSON.parse(result).translation || '' } catch (e) { text = result }
+  } else if (typeof result === 'object') {
+    text = result.translation || result.summary || result.subtext || ''
+  }
+  if (text.length > 60) text = text.slice(0, 60) + '...'
+  return text
+}
+
+// 加载更多（词条）
 async function loadMore() {
+  if (activeTab.value === 'translate') {
+    loadMoreTranslations()
+    return
+  }
   if (loadingMore.value || words.value.length >= total.value) return
   loadingMore.value = true
   try {
@@ -183,6 +232,24 @@ async function loadMore() {
     console.warn('加载更多失败', e)
   } finally {
     loadingMore.value = false
+  }
+}
+
+// 加载更多（翻译结果）
+async function loadMoreTranslations() {
+  if (tLoadingMore.value || translations.value.length >= tTotal.value) return
+  tLoadingMore.value = true
+  try {
+    const next = tPage.value + 1
+    const data = await userApi.getTranslationFavorites({ page: next, page_size: pageSize })
+    if (data?.list?.length) {
+      translations.value.push(...data.list)
+      tPage.value = next
+    }
+  } catch (e) {
+    console.warn('加载更多失败', e)
+  } finally {
+    tLoadingMore.value = false
   }
 }
 
@@ -206,10 +273,10 @@ async function handleFavorite(word) {
 
 function switchTab(value) {
   activeTab.value = value
-  if (value === 'words' && !words.value.length) {
-    fetchFavorites()
-  } else if (value === 'translate' && !translations.value.length) {
-    fetchTranslationFavorites()
+  if (value === 'words') {
+    if (!words.value.length) fetchFavorites()
+  } else if (value === 'translate') {
+    if (!translations.value.length) fetchTranslationFavorites(true)
   }
 }
 
@@ -230,7 +297,12 @@ function goDict() {
 }
 
 function handleBack() {
-  uni.navigateBack({ delta: 1 })
+  const pages = getCurrentPages()
+  if (pages.length > 1) {
+    uni.navigateBack({ delta: 1 })
+  } else {
+    uni.reLaunch({ url: '/pages/index/index' })
+  }
 }
 
 // 格式化时间

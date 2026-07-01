@@ -63,6 +63,7 @@
               @copy="handleCopy"
               @feedback="handleFeedback"
               @favorite="handleFavorite"
+              @followUp="handleFollowUp"
             />
           </view>
         </view>
@@ -270,6 +271,12 @@ async function handleTranslate() {
 function handleKeywordClick(word) {
   inputText.value = word
   handleTranslate()
+}
+
+// 继续追问：填入提示词，聚焦输入框，不自动发送
+function handleFollowUp(result) {
+  const kw = result?.keywords?.[0]?.word
+  inputText.value = kw ? `详细说说「${kw}」` : '详细说说'
 }
 
 // 相关推荐跳转

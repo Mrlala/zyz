@@ -33,22 +33,43 @@ def _recent_days_range(days: int = 7) -> tuple[datetime, datetime]:
 
 @router.get("/api-stats", response_model=BaseResponse)
 async def api_stats(
+    start_date: str | None = Query(None, description="开始日期 YYYY-MM-DD"),
+    end_date: str | None = Query(None, description="结束日期 YYYY-MM-DD"),
     db: Session = Depends(get_db),
     admin: AdminAccount = Depends(require_permission("monitor:api:view")),
 ) -> BaseResponse:
-    """API 调用统计：总数、成功率、平均耗时、按模块分组、近7天每日趋势。"""
-    total = db.execute(select(func.count(OperationLog.id))).scalar_one()
-    success_count = db.execute(
-        select(func.count(OperationLog.id)).where(OperationLog.status_code < 400)
-    ).scalar_one()
+    """API 调用统计：总数、成功率、平均耗时、按模块分组、每日趋势。
+
+    传 start_date/end_date 时按日期范围过滤所有统计；不传时保持默认行为
+    （总量/模块统计为全量，趋势为近 7 天）。
+    """
+    date_filters = []
+    if start_date:
+        date_filters.append(func.date(OperationLog.created_at) >= start_date)
+    if end_date:
+        date_filters.append(func.date(OperationLog.created_at) <= end_date)
+    has_date_filter = bool(date_filters)
+
+    total_query = select(func.count(OperationLog.id))
+    if has_date_filter:
+        total_query = total_query.where(*date_filters)
+    total = db.execute(total_query).scalar_one()
+
+    success_query = select(func.count(OperationLog.id)).where(OperationLog.status_code < 400)
+    if has_date_filter:
+        success_query = success_query.where(*date_filters)
+    success_count = db.execute(success_query).scalar_one()
+
     error_count = total - success_count
-    avg_duration = db.execute(
-        select(func.avg(OperationLog.duration_ms))
-    ).scalar_one() or 0
+
+    avg_query = select(func.avg(OperationLog.duration_ms))
+    if has_date_filter:
+        avg_query = avg_query.where(*date_filters)
+    avg_duration = db.execute(avg_query).scalar_one() or 0
     success_rate = (success_count / total) if total else 0.0
 
     # 按模块分组统计
-    module_rows = db.execute(
+    module_query = (
         select(
             OperationLog.module,
             func.count(OperationLog.id).label("count"),
@@ -57,7 +78,10 @@ async def api_stats(
         .where(OperationLog.module.is_not(None))
         .group_by(OperationLog.module)
         .order_by(func.count(OperationLog.id).desc())
-    ).all()
+    )
+    if has_date_filter:
+        module_query = module_query.where(*date_filters)
+    module_rows = db.execute(module_query).all()
     by_module = [
         {
             "module": row.module,
@@ -67,17 +91,20 @@ async def api_stats(
         for row in module_rows
     ]
 
-    # 近 7 天每日趋势（按 UTC 日期分组）
-    start, _ = _recent_days_range(7)
-    daily_rows = db.execute(
-        select(
-            func.date(OperationLog.created_at).label("date"),
-            func.count(OperationLog.id).label("count"),
-        )
-        .where(OperationLog.created_at >= start)
-        .group_by(func.date(OperationLog.created_at))
-        .order_by(func.date(OperationLog.created_at))
-    ).all()
+    # 每日趋势：传了日期范围则按范围过滤，否则默认近 7 天
+    daily_query = select(
+        func.date(OperationLog.created_at).label("date"),
+        func.count(OperationLog.id).label("count"),
+    )
+    if has_date_filter:
+        daily_query = daily_query.where(*date_filters)
+    else:
+        start, _ = _recent_days_range(7)
+        daily_query = daily_query.where(OperationLog.created_at >= start)
+    daily_query = daily_query.group_by(func.date(OperationLog.created_at)).order_by(
+        func.date(OperationLog.created_at)
+    )
+    daily_rows = db.execute(daily_query).all()
     daily_trend = [{"date": str(row.date), "count": row.count} for row in daily_rows]
 
     return BaseResponse(data={
@@ -95,25 +122,48 @@ async def api_stats(
 
 @router.get("/ai-stats", response_model=BaseResponse)
 async def ai_stats(
+    start_date: str | None = Query(None, description="开始日期 YYYY-MM-DD"),
+    end_date: str | None = Query(None, description="结束日期 YYYY-MM-DD"),
     db: Session = Depends(get_db),
     admin: AdminAccount = Depends(require_permission("monitor:ai:view")),
 ) -> BaseResponse:
-    """AI 调用统计：总调用数、成功率、总 token、总成本、近7天趋势。"""
-    total = db.execute(select(func.count(AiCallLog.id))).scalar_one()
-    success_count = db.execute(
-        select(func.count(AiCallLog.id)).where(AiCallLog.success.is_(True))
-    ).scalar_one()
-    fallback_count = db.execute(
-        select(func.count(AiCallLog.id)).where(AiCallLog.fallback_used.is_(True))
-    ).scalar_one()
-    total_tokens = db.execute(
-        select(func.coalesce(func.sum(AiCallLog.total_tokens), 0))
-    ).scalar_one() or 0
+    """AI 调用统计：总调用数、成功率、总 token、总成本、每日趋势。
+
+    传 start_date/end_date 时按日期范围过滤所有统计；不传时保持默认行为
+    （总量统计为全量，趋势为近 7 天）。
+    """
+    date_filters = []
+    if start_date:
+        date_filters.append(func.date(AiCallLog.created_at) >= start_date)
+    if end_date:
+        date_filters.append(func.date(AiCallLog.created_at) <= end_date)
+    has_date_filter = bool(date_filters)
+
+    total_query = select(func.count(AiCallLog.id))
+    if has_date_filter:
+        total_query = total_query.where(*date_filters)
+    total = db.execute(total_query).scalar_one()
+
+    success_query = select(func.count(AiCallLog.id)).where(AiCallLog.success.is_(True))
+    if has_date_filter:
+        success_query = success_query.where(*date_filters)
+    success_count = db.execute(success_query).scalar_one()
+
+    fallback_query = select(func.count(AiCallLog.id)).where(AiCallLog.fallback_used.is_(True))
+    if has_date_filter:
+        fallback_query = fallback_query.where(*date_filters)
+    fallback_count = db.execute(fallback_query).scalar_one()
+
+    tokens_query = select(func.coalesce(func.sum(AiCallLog.total_tokens), 0))
+    if has_date_filter:
+        tokens_query = tokens_query.where(*date_filters)
+    total_tokens = db.execute(tokens_query).scalar_one() or 0
 
     # cost_estimate 是字符串，需逐条转 float 求和（SQLite 无 CAST AS FLOAT 通用做法用 Python 求和）
-    cost_rows = db.execute(
-        select(AiCallLog.cost_estimate).where(AiCallLog.cost_estimate.is_not(None))
-    ).scalars().all()
+    cost_query = select(AiCallLog.cost_estimate).where(AiCallLog.cost_estimate.is_not(None))
+    if has_date_filter:
+        cost_query = cost_query.where(*date_filters)
+    cost_rows = db.execute(cost_query).scalars().all()
     total_cost = 0.0
     for c in cost_rows:
         try:
@@ -123,17 +173,20 @@ async def ai_stats(
 
     success_rate = (success_count / total) if total else 0.0
 
-    # 近 7 天每日趋势
-    start, _ = _recent_days_range(7)
-    daily_rows = db.execute(
-        select(
-            func.date(AiCallLog.created_at).label("date"),
-            func.count(AiCallLog.id).label("count"),
-        )
-        .where(AiCallLog.created_at >= start)
-        .group_by(func.date(AiCallLog.created_at))
-        .order_by(func.date(AiCallLog.created_at))
-    ).all()
+    # 每日趋势：传了日期范围则按范围过滤，否则默认近 7 天
+    daily_query = select(
+        func.date(AiCallLog.created_at).label("date"),
+        func.count(AiCallLog.id).label("count"),
+    )
+    if has_date_filter:
+        daily_query = daily_query.where(*date_filters)
+    else:
+        start, _ = _recent_days_range(7)
+        daily_query = daily_query.where(AiCallLog.created_at >= start)
+    daily_query = daily_query.group_by(func.date(AiCallLog.created_at)).order_by(
+        func.date(AiCallLog.created_at)
+    )
+    daily_rows = db.execute(daily_query).all()
     daily_trend = [{"date": str(row.date), "count": row.count} for row in daily_rows]
 
     return BaseResponse(data={

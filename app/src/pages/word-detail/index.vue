@@ -178,13 +178,13 @@ function handleBack() {
   uni.navigateBack({ delta: 1 })
 }
 
-// 分享
+// 复制词条（H5 无原生分享，提供复制功能）
 function handleShare() {
   if (!word.value) return
   uni.setClipboardData({
     data: word.value.word || '',
     success: () => {
-      uni.showToast({ title: '词条已复制', icon: 'success' })
+      uni.showToast({ title: '词条已复制，可粘贴分享', icon: 'none' })
     }
   })
 }

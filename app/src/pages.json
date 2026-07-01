@@ -63,7 +63,8 @@
       "path": "pages/dict/category",
       "style": {
         "navigationStyle": "custom",
-        "navigationBarTitleText": "分类词条"
+        "navigationBarTitleText": "分类词条",
+        "enablePullDownRefresh": true
       }
     },
     {

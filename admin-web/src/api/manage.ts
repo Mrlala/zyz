@@ -103,8 +103,10 @@ export const aiConfigApi = {
 
 // ===================== 监控 =====================
 export const monitorApi = {
-  getApiStats: () => request({ url: '/manage/monitor/api-stats', method: 'get' }),
-  getAiStats: () => request({ url: '/manage/monitor/ai-stats', method: 'get' }),
+  getApiStats: (params?: { start_date?: string; end_date?: string }) =>
+    request({ url: '/manage/monitor/api-stats', method: 'get', params }),
+  getAiStats: (params?: { start_date?: string; end_date?: string }) =>
+    request({ url: '/manage/monitor/ai-stats', method: 'get', params }),
   listAiLogs: (params: { page: number; page_size: number }) =>
     request({ url: '/manage/monitor/ai-logs', method: 'get', params }),
 }

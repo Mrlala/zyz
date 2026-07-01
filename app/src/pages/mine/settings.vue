@@ -139,11 +139,13 @@ import { ref, computed } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { ArrowLeft, ChevronRight } from 'lucide-vue-next'
 import { useUserStore } from '@/store/modules/user'
+import { useTranslateStore } from '@/store/modules/translate'
 import storage from '@/utils/storage'
 import { APP_VERSION } from '@/config/env'
 import * as configApi from '@/api/config'
 
 const userStore = useUserStore()
+const translateStore = useTranslateStore()
 
 const statusBarHeight = ref(0)
 const version = ref(APP_VERSION)
@@ -254,11 +256,6 @@ function toggleDarkMode() {
     })
 }
 
-// 占位提示
-function showDeveloping() {
-  uni.showToast({ title: '功能开发中', icon: 'none' })
-}
-
 // 清除缓存
 function clearCache() {
   uni.showModal({
@@ -267,7 +264,9 @@ function clearCache() {
     success: (res) => {
       if (res.confirm) {
         storage.remove('zyz_search_history')
-        storage.remove('zyz_translate_history')
+        storage.remove('zyz_translate_sessions')
+        storage.remove('zyz_translate_current_session')
+        translateStore.clearAllSessions()
         uni.showToast({ title: '已清除', icon: 'success' })
       }
     }

@@ -1,5 +1,21 @@
 <template>
   <div class="page-container">
+    <!-- 工具栏 -->
+    <div class="page-card" style="margin-bottom: 16px">
+      <el-date-picker
+        v-model="dateRange"
+        type="daterange"
+        value-format="YYYY-MM-DD"
+        range-separator="至"
+        start-placeholder="开始日期"
+        end-placeholder="结束日期"
+        :shortcuts="shortcuts"
+        :clearable="false"
+        @change="loadStats"
+      />
+      <el-button type="primary" :icon="Search" style="margin-left: 12px" @click="loadStats">查询</el-button>
+    </div>
+
     <!-- 统计卡片 -->
     <el-row :gutter="16">
       <el-col :span="6">
@@ -66,12 +82,59 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { Search } from '@element-plus/icons-vue'
 import ECharts from '@/components/ECharts.vue'
 import { monitorApi } from '@/api/manage'
 import { formatNumber, formatPercent } from '@/utils/format'
 
 const loading = ref(false)
 const stats = ref<Record<string, any>>({})
+
+function fmtDate(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function defaultDateRange(): [string, string] {
+  const end = new Date()
+  const start = new Date()
+  start.setTime(start.getTime() - 6 * 24 * 3600 * 1000)
+  return [fmtDate(start), fmtDate(end)]
+}
+
+const dateRange = ref<[string, string] | null>(defaultDateRange())
+
+const shortcuts = [
+  {
+    text: '近7天',
+    value: () => {
+      const e = new Date()
+      const s = new Date()
+      s.setTime(s.getTime() - 6 * 24 * 3600 * 1000)
+      return [s, e]
+    },
+  },
+  {
+    text: '近30天',
+    value: () => {
+      const e = new Date()
+      const s = new Date()
+      s.setTime(s.getTime() - 29 * 24 * 3600 * 1000)
+      return [s, e]
+    },
+  },
+  {
+    text: '本月',
+    value: () => {
+      const e = new Date()
+      const s = new Date()
+      s.setDate(1)
+      return [s, e]
+    },
+  },
+]
 
 const rateColor = computed(() => {
   const r = stats.value.success_rate ?? 0
@@ -129,7 +192,12 @@ const moduleOption = computed(() => {
 async function loadStats() {
   loading.value = true
   try {
-    stats.value = await monitorApi.getApiStats()
+    const params: { start_date?: string; end_date?: string } = {}
+    if (dateRange.value && dateRange.value.length === 2) {
+      params.start_date = dateRange.value[0]
+      params.end_date = dateRange.value[1]
+    }
+    stats.value = await monitorApi.getApiStats(params)
   } catch {
   } finally {
     loading.value = false

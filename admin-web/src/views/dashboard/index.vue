@@ -1,5 +1,24 @@
 <template>
   <div class="page-container">
+    <!-- 工具栏：自动刷新 -->
+    <div class="refresh-toolbar">
+      <div class="refresh-left">
+        <span class="refresh-label">自动刷新</span>
+        <el-switch v-model="autoRefresh" @change="onAutoRefreshChange" />
+        <el-select
+          v-model="refreshInterval"
+          style="width: 110px; margin-left: 8px"
+          :disabled="!autoRefresh"
+          @change="onIntervalChange"
+        >
+          <el-option label="30秒" :value="30" />
+          <el-option label="60秒" :value="60" />
+          <el-option label="5分钟" :value="300" />
+        </el-select>
+      </div>
+      <el-button type="primary" :icon="Refresh" plain @click="loadOverview">手动刷新</el-button>
+    </div>
+
     <!-- 统计卡片 -->
     <el-row :gutter="16">
       <el-col :span="6">
@@ -70,11 +89,45 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { Refresh } from '@element-plus/icons-vue'
 import ECharts from '@/components/ECharts.vue'
 import { dashboardApi } from '@/api/manage'
 
 const overview = ref<Record<string, any>>({})
+
+// 自动刷新
+const autoRefresh = ref(false)
+const refreshInterval = ref(60)
+let refreshTimer: ReturnType<typeof setInterval> | null = null
+
+function clearRefreshTimer() {
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+    refreshTimer = null
+  }
+}
+
+function startRefreshTimer() {
+  clearRefreshTimer()
+  refreshTimer = setInterval(() => {
+    loadOverview()
+  }, refreshInterval.value * 1000)
+}
+
+function onAutoRefreshChange(val: boolean | string | number) {
+  if (val) {
+    startRefreshTimer()
+  } else {
+    clearRefreshTimer()
+  }
+}
+
+function onIntervalChange() {
+  if (autoRefresh.value) {
+    startRefreshTimer()
+  }
+}
 
 const pendingTotal = computed(() => (overview.value.submission_pending ?? 0) + (overview.value.correction_pending ?? 0))
 
@@ -130,10 +183,35 @@ async function loadOverview() {
   } catch {}
 }
 
-onMounted(loadOverview)
+onMounted(() => {
+  loadOverview()
+})
+
+onUnmounted(() => {
+  clearRefreshTimer()
+})
 </script>
 
 <style scoped lang="scss">
+.refresh-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #fff;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.refresh-left {
+  display: flex;
+  align-items: center;
+}
+.refresh-label {
+  font-size: 14px;
+  color: #606266;
+  margin-right: 8px;
+}
 .mini-stat {
   display: flex;
   flex-direction: column;

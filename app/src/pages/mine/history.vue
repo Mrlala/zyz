@@ -45,7 +45,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
-import { ArrowLeft, RotateCcw } from 'lucide-vue-next'
+import { ArrowLeft, RotateCcw, Trash2 } from 'lucide-vue-next'
 import { useTranslateStore } from '@/store/modules/translate'
 
 const translateStore = useTranslateStore()
@@ -180,10 +180,18 @@ function formatTime(ts) {
 
 /* ============ 历史记录卡 ============ */
 .history-card {
+  display: flex;
+  align-items: center;
   padding: 14px 16px;
   background-color: $bg-card;
   border-radius: 12px;
   box-shadow: $shadow-sm;
+
+  &__main {
+    flex: 1;
+    min-width: 0;
+    padding-right: 12px;
+  }
 
   &__text {
     display: -webkit-box;
@@ -200,6 +208,20 @@ function formatTime(ts) {
     display: flex;
     justify-content: space-between;
     align-items: center;
+  }
+
+  &__del {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+
+    &:active {
+      background-color: $bg-sunken;
+    }
   }
 
   &__mode {

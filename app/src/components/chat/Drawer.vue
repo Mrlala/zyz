@@ -49,7 +49,12 @@
           @click="handleSelectSession(item)"
         >
           <text class="drawer__menu-text">{{ item.title }}</text>
-          <text class="drawer__menu-time">{{ formatTime(item.updated_at) }}</text>
+          <view class="drawer__menu-right">
+            <text class="drawer__menu-time">{{ formatTime(item.updated_at) }}</text>
+            <view class="drawer__menu-del" @click.stop="handleDeleteSession(item.id)">
+              <Trash2 :size="14" color="#9CA3AF" />
+            </view>
+          </view>
         </view>
         <view v-if="!recentSessions.length" class="drawer__empty">暂无历史对话</view>
       </view>
@@ -145,6 +150,20 @@ function handleNavigate(url) {
 
 function handleSelectSession(item) {
   emit('selectSession', item.id)
+}
+
+// 删除单条会话
+function handleDeleteSession(id) {
+  uni.showModal({
+    title: '提示',
+    content: '确定删除该对话？',
+    success: (res) => {
+      if (res.confirm) {
+        translateStore.deleteSession(id)
+        uni.showToast({ title: '已删除', icon: 'none' })
+      }
+    }
+  })
 }
 
 function formatTime(ts) {
@@ -327,10 +346,29 @@ function formatTime(ts) {
     }
   }
 
-  &__menu-time {
+  &__menu-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     flex-shrink: 0;
+  }
+
+  &__menu-time {
     font-size: 12px;
     color: $text-tertiary;
+  }
+
+  &__menu-del {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+
+    &:active {
+      background-color: $bg-sunken;
+    }
   }
 
   &__empty {
