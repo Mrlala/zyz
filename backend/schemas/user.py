@@ -27,6 +27,27 @@ class LoginRequest(BaseModel):
     device_id: str = Field(..., min_length=1, description="设备唯一标识")
 
 
+class AccountRegisterRequest(BaseModel):
+    """账号密码注册请求。"""
+
+    username: str = Field(..., min_length=2, max_length=20, description="用户名")
+    password: str = Field(..., min_length=6, max_length=64, description="密码")
+
+
+class AccountLoginRequest(BaseModel):
+    """账号密码登录请求。"""
+
+    username: str = Field(..., min_length=2, max_length=20, description="用户名")
+    password: str = Field(..., min_length=6, max_length=64, description="密码")
+
+
+class ProfileUpdateRequest(BaseModel):
+    """用户资料更新请求（昵称、头像）。"""
+
+    nickname: str | None = Field(None, min_length=1, max_length=20, description="昵称")
+    avatar: str | None = Field(None, description="头像标识或 URL")
+
+
 class AuthResponse(BaseModel):
     """登录/注册响应数据。"""
 

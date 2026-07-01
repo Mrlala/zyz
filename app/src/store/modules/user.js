@@ -2,14 +2,13 @@
  * 用户状态模块（setup 风格）
  *
  * State：token, userInfo, preferences, favoriteIds
- * Actions：register / login / logout / fetchProfile / toggleFavorite / restore
+ * Actions：accountLogin / accountRegister / logout / fetchProfile / updateProfile / toggleFavorite / restore
  */
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import * as userApi from '@/api/user'
 import * as wordApi from '@/api/word'
 import storage from '@/utils/storage'
-import { getDeviceId } from '@/api/request'
 
 const TOKEN_KEY = 'zyz_token'
 const USER_KEY = 'zyz_user_info'
@@ -32,36 +31,31 @@ export const useUserStore = defineStore('user', () => {
   const isLoggedIn = computed(() => !!token.value)
   const userId = computed(() => userInfo.value?.user_id || null)
   const nickname = computed(() => userInfo.value?.nickname || '匿名用户')
+  const avatar = computed(() => userInfo.value?.avatar || '')
+  // 新注册用户需设置昵称头像
+  const needsProfileSetup = computed(
+    () => !!token.value && !userInfo.value?.nickname
+  )
 
   /**
-   * 设备 ID 注册（首次启动调用）
-   * 已注册则走登录流程
+   * 账号密码注册
    */
-  async function register() {
-    const deviceId = getDeviceId()
-    try {
-      const data = await userApi.register({ device_id: deviceId })
-      token.value = data.token
-      await fetchProfile()
-      persist()
-      return data
-    } catch (err) {
-      // 设备已注册 → 走登录
-      if (err.message && err.message.includes('已注册')) {
-        return login()
-      }
-      throw err
-    }
+  async function accountRegister(username, password) {
+    const data = await userApi.registerAccount({ username, password })
+    token.value = data.token
+    // 注册后 userInfo 为空，触发 needsProfileSetup
+    userInfo.value = { user_id: data.user_id }
+    persist()
+    return data
   }
 
   /**
-   * 用户登录（基于设备 ID）
+   * 账号密码登录
    */
-  async function login() {
-    const deviceId = getDeviceId()
-    const data = await userApi.login({ device_id: deviceId })
+  async function accountLogin(username, password) {
+    const data = await userApi.loginAccount({ username, password })
     token.value = data.token
-    // 拉取 profile 失败不影响登录态生效
+    userInfo.value = { user_id: data.user_id }
     try {
       await fetchProfile()
     } catch (e) {
@@ -84,6 +78,23 @@ export const useUserStore = defineStore('user', () => {
   }
 
   /**
+   * 更新用户资料（昵称、头像）
+   */
+  async function updateProfile(patch) {
+    const data = await userApi.updateProfile(patch)
+    // 同步到 userInfo
+    if (userInfo.value) {
+      userInfo.value = {
+        ...userInfo.value,
+        nickname: data.nickname,
+        avatar: data.avatar
+      }
+    }
+    persist()
+    return data
+  }
+
+  /**
    * 更新用户偏好
    */
   async function updatePreferences(patch) {
@@ -95,7 +106,6 @@ export const useUserStore = defineStore('user', () => {
 
   /**
    * 切换收藏状态
-   * @param {number} wordId 词条 ID
    */
   async function toggleFavorite(wordId) {
     const idx = favoriteIds.value.indexOf(wordId)
@@ -111,9 +121,6 @@ export const useUserStore = defineStore('user', () => {
     return !isFavorited
   }
 
-  /**
-   * 判断是否已收藏
-   */
   function isFavorited(wordId) {
     return favoriteIds.value.includes(wordId)
   }
@@ -130,9 +137,6 @@ export const useUserStore = defineStore('user', () => {
     storage.remove(FAV_KEY)
   }
 
-  /**
-   * 持久化到本地存储
-   */
   function persist() {
     if (token.value) storage.set(TOKEN_KEY, token.value)
     if (userInfo.value) storage.set(USER_KEY, userInfo.value)
@@ -140,9 +144,6 @@ export const useUserStore = defineStore('user', () => {
     storage.set(FAV_KEY, favoriteIds.value)
   }
 
-  /**
-   * 从本地存储恢复登录态
-   */
   function restore() {
     token.value = storage.get(TOKEN_KEY) || ''
     userInfo.value = storage.get(USER_KEY) || null
@@ -161,10 +162,13 @@ export const useUserStore = defineStore('user', () => {
     isLoggedIn,
     userId,
     nickname,
+    avatar,
+    needsProfileSetup,
     // actions
-    register,
-    login,
+    accountRegister,
+    accountLogin,
     fetchProfile,
+    updateProfile,
     updatePreferences,
     toggleFavorite,
     isFavorited,

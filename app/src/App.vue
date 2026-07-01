@@ -6,7 +6,7 @@ export default {
   async onLaunch() {
     console.log('App Launch - 中译中 v1.0.0')
 
-    // 应用初始化：恢复用户登录态、获取设备 ID
+    // 应用初始化：恢复用户登录态
     try {
       const appStore = useAppStore()
       appStore.initDeviceId()
@@ -15,28 +15,23 @@ export default {
       const userStore = useUserStore()
       userStore.restore()
 
-      // 首次启动无 token 时自动注册（基于设备 ID）
-      // 注册失败（设备已注册）会自动 fallback 到 login
       if (!userStore.isLoggedIn) {
-        console.log('未检测到登录态，自动注册/登录...')
-        try {
-          await userStore.register()
-          console.log('自动注册成功，userId:', userStore.userId)
-        } catch (err) {
-          console.error('自动注册/登录失败：', err)
-        }
+        // 未登录 → 跳转登录页
+        console.log('未登录，跳转登录页')
+        uni.reLaunch({ url: '/pages/auth/login' })
+      } else if (userStore.needsProfileSetup) {
+        // 已登录但未设置昵称头像 → 跳转资料设置页
+        console.log('需要设置昵称头像')
+        uni.reLaunch({ url: '/pages/auth/profile-setup' })
       } else {
-        // 已登录：主动拉取最新 profile（避免本地缓存过期）
+        // 已登录：主动拉取最新 profile
         try {
           await userStore.fetchProfile()
         } catch (err) {
-          // profile 拉取失败（token 过期等）→ 重新登录
-          console.warn('profile 拉取失败，尝试重新登录:', err)
-          try {
-            await userStore.login()
-          } catch (e) {
-            console.error('重新登录失败：', e)
-          }
+          // token 过期 → 清除登录态，跳登录页
+          console.warn('profile 拉取失败，token 可能已过期:', err)
+          userStore.logout()
+          uni.reLaunch({ url: '/pages/auth/login' })
         }
       }
     } catch (err) {

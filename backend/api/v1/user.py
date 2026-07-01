@@ -21,7 +21,15 @@ from models.submission import Submission
 from models.translation import Translation, TranslationFavorite
 from models.user import Favorite, User
 from models.achievement import UserAchievement
-from schemas import BaseResponse, PreferencesUpdate, RegisterRequest, LoginRequest
+from schemas import (
+    BaseResponse,
+    PreferencesUpdate,
+    RegisterRequest,
+    LoginRequest,
+    AccountRegisterRequest,
+    AccountLoginRequest,
+    ProfileUpdateRequest,
+)
 from services.user_service import UserService
 
 router = APIRouter(prefix="/user", tags=["用户"])
@@ -94,6 +102,81 @@ async def login(
         "user_id": user.id,
         "token": token,
         "expires_in": TOKEN_EXPIRES_IN,
+    })
+
+
+# ---- 账号密码注册/登录 ----
+
+@router.post("/register-account", response_model=BaseResponse)
+async def register_account(
+    request: AccountRegisterRequest,
+    db: Session = Depends(get_db),
+) -> BaseResponse:
+    """账号密码注册。"""
+    service = UserService()
+    try:
+        user = service.register(request.username, request.password, db)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        )
+
+    token = create_access_token(
+        user.id,
+        extra_data={"username": user.username},
+    )
+    return BaseResponse(data={
+        "user_id": user.id,
+        "token": token,
+        "expires_in": TOKEN_EXPIRES_IN,
+        "is_new": True,
+    })
+
+
+@router.post("/login-account", response_model=BaseResponse)
+async def login_account(
+    request: AccountLoginRequest,
+    db: Session = Depends(get_db),
+) -> BaseResponse:
+    """账号密码登录。"""
+    service = UserService()
+    try:
+        result = service.login(request.username, request.password, db)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(exc),
+        )
+
+    return BaseResponse(data={
+        "user_id": result["user"]["id"],
+        "token": result["token"],
+        "expires_in": TOKEN_EXPIRES_IN,
+        "is_new": False,
+    })
+
+
+@router.put("/profile", response_model=BaseResponse)
+async def update_profile(
+    request: ProfileUpdateRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user_required),
+) -> BaseResponse:
+    """更新用户资料（昵称、头像）。"""
+    if request.nickname is not None:
+        user.nickname = request.nickname
+    if request.avatar is not None:
+        user.avatar = request.avatar
+    user.updated_at = datetime.now(timezone.utc)
+    db.commit()
+
+    service = UserService()
+    profile = service.get_profile(user.id, db)
+    return BaseResponse(data={
+        "user_id": profile.get("id"),
+        "nickname": profile.get("nickname"),
+        "avatar": profile.get("avatar"),
     })
 
 
@@ -227,7 +310,7 @@ async def list_favorites(
             "id": w.id,
             "word": w.word,
             "pinyin": w.pinyin,
-            "summary": w.summary,
+            "summary": w.meaning,
             "category_id": w.category_id,
             "category_name": cat.name if cat else "",
             "favorite_count": 0,

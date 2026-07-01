@@ -4,6 +4,20 @@
   },
   "pages": [
     {
+      "path": "pages/auth/login",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "登录"
+      }
+    },
+    {
+      "path": "pages/auth/profile-setup",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "完善资料"
+      }
+    },
+    {
       "path": "pages/index/index",
       "style": {
         "navigationStyle": "custom",

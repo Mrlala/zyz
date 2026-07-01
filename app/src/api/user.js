@@ -1,32 +1,60 @@
 /**
  * 用户相关接口
  * 对应后端：backend/api/v1/user.py
- * - POST /user/register      用户注册（设备 ID）
- * - POST /user/login         用户登录（设备 ID）
- * - GET  /user/profile       用户信息
- * - PUT  /user/preferences   更新偏好设置
+ * - POST /user/register          用户注册（设备 ID，保留兼容）
+ * - POST /user/login             用户登录（设备 ID，保留兼容）
+ * - POST /user/register-account  账号密码注册
+ * - POST /user/login-account     账号密码登录
+ * - GET  /user/profile           用户信息
+ * - PUT  /user/profile           更新昵称头像
+ * - PUT  /user/preferences       更新偏好设置
  */
 import { get, post, put } from './request'
 
 /**
- * 用户注册（基于设备 ID）
- * @param {object} data
- * @param {string} data.device_id 设备 ID
- * @param {string} data.nickname 昵称（可选）
- * @returns {Promise<{user_id: number, token: string, expires_in: number}>}
+ * 用户注册（基于设备 ID，保留兼容）
  */
 export function register(data) {
   return post('/user/register', data)
 }
 
 /**
- * 用户登录（基于设备 ID）
- * @param {object} data
- * @param {string} data.device_id 设备 ID
- * @returns {Promise<{user_id: number, token: string, expires_in: number}>}
+ * 用户登录（基于设备 ID，保留兼容）
  */
 export function login(data) {
   return post('/user/login', data)
+}
+
+/**
+ * 账号密码注册
+ * @param {object} data
+ * @param {string} data.username 用户名
+ * @param {string} data.password 密码
+ * @returns {Promise<{user_id: number, token: string, expires_in: number, is_new: boolean}>}
+ */
+export function registerAccount(data) {
+  return post('/user/register-account', data)
+}
+
+/**
+ * 账号密码登录
+ * @param {object} data
+ * @param {string} data.username 用户名
+ * @param {string} data.password 密码
+ * @returns {Promise<{user_id: number, token: string, expires_in: number, is_new: boolean}>}
+ */
+export function loginAccount(data) {
+  return post('/user/login-account', data)
+}
+
+/**
+ * 更新用户资料（昵称、头像）
+ * @param {object} data
+ * @param {string} [data.nickname] 昵称
+ * @param {string} [data.avatar] 头像标识
+ */
+export function updateProfile(data) {
+  return put('/user/profile', data)
 }
 
 /**
@@ -84,6 +112,9 @@ export function getTranslationFavorites(params) {
 export default {
   register,
   login,
+  registerAccount,
+  loginAccount,
+  updateProfile,
   getProfile,
   updatePreferences,
   getFavorites,

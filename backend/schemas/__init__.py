@@ -29,10 +29,13 @@ from schemas.category import (
     CategoryWordsResponse,
 )
 from schemas.user import (
+    AccountLoginRequest,
+    AccountRegisterRequest,
     AuthResponse,
     LoginRequest,
     PreferencesResponse,
     PreferencesUpdate,
+    ProfileUpdateRequest,
     RegisterRequest,
     UserResponse,
 )
@@ -87,6 +90,9 @@ __all__ = [
     # 用户
     "RegisterRequest",
     "LoginRequest",
+    "AccountRegisterRequest",
+    "AccountLoginRequest",
+    "ProfileUpdateRequest",
     "AuthResponse",
     "UserResponse",
     "PreferencesUpdate",
