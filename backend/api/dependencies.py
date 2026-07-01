@@ -25,8 +25,8 @@ TOKEN_EXPIRES_IN = 604800
 
 
 def _get_admin_user_ids() -> set[int]:
-    """从环境变量 ADMIN_USER_IDS 读取管理员用户 ID 集合（逗号分隔）。"""
-    raw = os.environ.get("ADMIN_USER_IDS", "")
+    """从配置 ADMIN_USER_IDS 读取管理员用户 ID 集合（逗号分隔）。"""
+    raw = settings.ADMIN_USER_IDS or ""
     return {int(x.strip()) for x in raw.split(",") if x.strip()}
 
 

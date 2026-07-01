@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     DEEPSEEK_API_URL: str = "https://api.deepseek.com/v1/chat/completions"
     DEEPSEEK_MODEL: str = "deepseek-chat"
 
+    # 后台管理员用户 ID（逗号分隔，对应 users 表 id）
+    ADMIN_USER_IDS: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:
