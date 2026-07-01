@@ -178,7 +178,7 @@ const modes = [
 const functions = [
   { key: 'dict', label: '词库', url: '/pages/dict/index', icon: BookOpen },
   { key: 'ranking', label: '热词排行', url: '/pages/hot/ranking', icon: Trophy },
-  { key: 'history', label: '浏览历史', url: '/pages/mine/history', icon: History },
+  { key: 'history', label: '翻译历史', url: '/pages/mine/history?type=translate', icon: History },
   { key: 'favorites', label: '收藏', url: '/pages/mine/favorites', icon: Star },
   { key: 'submissions', label: '我的提交', url: '/pages/mine/submissions', icon: Send },
   { key: 'review', label: '审核', url: '/pages/review/index', icon: ShieldCheck }
