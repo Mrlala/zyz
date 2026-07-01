@@ -37,6 +37,18 @@
               @click="switchMode(m.key)"
             >{{ m.label }}</view>
           </view>
+          <!-- 热词推荐 -->
+          <view v-if="hotWords.length" class="chat-empty__hot">
+            <text class="chat-empty__hot-title">试试这些</text>
+            <view class="chat-empty__hot-chips">
+              <view
+                v-for="w in hotWords"
+                :key="w.id"
+                class="hot-chip"
+                @click="handleHotWordClick(w)"
+              >{{ w.word }}</view>
+            </view>
+          </view>
         </view>
       </view>
 
@@ -150,6 +162,7 @@ import ResultCards from '@/components/chat/ResultCards.vue'
 import Drawer from '@/components/chat/Drawer.vue'
 import * as feedbackApi from '@/api/feedback'
 import * as userApi from '@/api/user'
+import * as hotApi from '@/api/hot'
 
 const translateStore = useTranslateStore()
 const userStore = useUserStore()
@@ -166,6 +179,8 @@ const drawerOpen = ref(false)
 const plusOpen = ref(false)
 // 滚动锚点（用于滚到底部）
 const scrollAnchor = ref('')
+// 空状态热词推荐
+const hotWords = ref([])
 
 // 模式配置
 const modes = [
@@ -215,9 +230,22 @@ onLoad(() => {
     translateStore.setMode(userStore.preferences.default_mode)
   }
 
+  // 拉取空状态热词推荐（前 8 条）
+  fetchHotWords()
+
   uni.$off('translate:fill', onFillText)
   uni.$on('translate:fill', onFillText)
 })
+
+// 拉取每日热词用于空状态推荐
+async function fetchHotWords() {
+  try {
+    const data = await hotApi.getDaily()
+    hotWords.value = (data?.list || []).slice(0, 8)
+  } catch (e) {
+    console.warn('热词推荐拉取失败', e)
+  }
+}
 
 onShow(() => {})
 
@@ -270,6 +298,12 @@ async function handleTranslate() {
 // 关键词点击：填入输入框翻译
 function handleKeywordClick(word) {
   inputText.value = word
+  handleTranslate()
+}
+
+// 空状态热词 chip 点击：填入并翻译
+function handleHotWordClick(w) {
+  inputText.value = w.word
   handleTranslate()
 }
 
@@ -492,6 +526,40 @@ function formatMsgTime(ts) {
       color: #FFFFFF;
       border-color: $color-primary;
     }
+  }
+
+  &__hot {
+    margin-top: 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  &__hot-title {
+    font-size: 12px;
+    color: $text-tertiary;
+    margin-bottom: 12px;
+  }
+
+  &__hot-chips {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    max-width: 320px;
+  }
+}
+
+.hot-chip {
+  padding: 6px 14px;
+  border-radius: 9999px;
+  background-color: rgba(254, 44, 85, 0.08);
+  color: $color-primary;
+  font-size: 13px;
+  font-weight: 500;
+
+  &:active {
+    background-color: rgba(254, 44, 85, 0.16);
   }
 }
 

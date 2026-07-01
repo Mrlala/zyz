@@ -41,6 +41,7 @@ async def get_daily_hot(
             "word": item.get("word", ""),
             "heat": item.get("hot_score", 0),
             "vote_count": item.get("vote_count", 0),
+            "meaning": item.get("meaning", ""),
         }
         for idx, item in enumerate(items)
     ]
