@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.v1 import api_router
+from core.middleware import OperationLogMiddleware
 
 app = FastAPI(
     title="黑话翻译 API",
@@ -23,7 +24,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 注册业务路由（SDD 4.5 全部 33 个接口）
+# 操作日志中间件：记录 /api/manage/* 请求到审计日志
+app.add_middleware(OperationLogMiddleware)
+
+# 注册业务路由（SDD 4.5 全部 33 个接口 + 后台管理 manage 接口）
 app.include_router(api_router, prefix="/api")
 
 

@@ -1,15 +1,24 @@
 """数据模型层
 
-汇总导出全部 15 张表的 SQLAlchemy 模型，导入本包即触发所有模型注册到 Base.metadata。
+汇总导出全部表的 SQLAlchemy 模型，导入本包即触发所有模型注册到 Base.metadata。
 """
 from models.base import Base
 from models.category import Category
 from models.word import Word, WordAlias, WordContext, WordRelation
 from models.user import User, LearnRecord, Favorite
-from models.translation import Translation
+from models.translation import Translation, TranslationFavorite
 from models.submission import Submission, CorrectionReport
 from models.feedback import Feedback
 from models.achievement import Achievement, UserAchievement, VoteRecord
+from models.admin import (
+    AdminAccount,
+    Role,
+    Permission,
+    RolePermission,
+    OperationLog,
+    AiCallLog,
+    SystemConfig,
+)
 
 __all__ = [
     "Base",
@@ -36,4 +45,12 @@ __all__ = [
     "Achievement",
     "UserAchievement",
     "VoteRecord",
+    # 后台管理
+    "AdminAccount",
+    "Role",
+    "Permission",
+    "RolePermission",
+    "OperationLog",
+    "AiCallLog",
+    "SystemConfig",
 ]
