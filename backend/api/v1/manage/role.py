@@ -101,4 +101,5 @@ async def update_role_permissions(
     return BaseResponse(data={
         "role_id": role_id,
         "permission_ids": sorted(valid_ids),
-        "updated
+        "updated_by": admin.username,
+    })
