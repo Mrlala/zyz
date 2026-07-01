@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import random
+from datetime import datetime, timedelta
 from typing import Any
 
 from sqlalchemy import func, select
@@ -14,6 +15,7 @@ from sqlalchemy.orm import Session
 from models.user import LearnRecord
 from models.word import Word
 from models.achievement import VoteRecord
+from models.translation import Translation
 
 # 每日推荐总数
 DAILY_COUNT = 10
@@ -129,30 +131,84 @@ class HotWordService:
         db.commit()
         return {"word_id": word_id, "vote_type": vote_type, "vote_count": word.vote_count}
 
-    def get_ranking(self, db: Session, limit: int = 50) -> list[dict[str, Any]]:
-        """获取热词排行榜（按热度评分降序）。
+    def get_ranking(
+        self,
+        db: Session,
+        limit: int = 50,
+        period: str = "daily",
+    ) -> list[dict[str, Any]]:
+        """获取热词排行榜（按指定周期内的热度降序）。
+
+        根据 period 真实区分时间窗口：
+        - daily：最近 24 小时
+        - weekly：最近 7 天
+        - monthly：最近 30 天
+
+        热度来源：通过 Translation 表统计该词条在时间窗口内被翻译/查询的次数，
+        并以 view_count 作为兜底（窗口内无翻译记录时仍可参与排序）。
 
         仅含已发布、非高风险词条。
 
         :param db: 数据库会话
         :param limit: 返回数量上限
+        :param period: 周期 daily/weekly/monthly
         :return: 排行榜列表
         """
-        words = (
+        # 计算时间窗口起点
+        now = datetime.utcnow()
+        if period == "weekly":
+            start_time = now - timedelta(days=7)
+        elif period == "monthly":
+            start_time = now - timedelta(days=30)
+        else:  # daily
+            start_time = now - timedelta(hours=24)
+
+        # 子查询：统计时间窗口内每个原文（original_text）被翻译的次数
+        trans_count_subq = (
+            select(
+                Translation.original_text.label("word_text"),
+                func.count(Translation.id).label("trans_count"),
+            )
+            .where(Translation.created_at >= start_time)
+            .group_by(Translation.original_text)
+            .subquery()
+        )
+
+        # 通过 original_text 与 Word.word 关联，LEFT JOIN 保证无翻译记录的词也能出现
+        rows = (
             db.execute(
-                select(Word)
+                select(
+                    Word,
+                    func.coalesce(trans_count_subq.c.trans_count, 0).label("heat"),
+                )
+                .outerjoin(
+                    trans_count_subq,
+                    Word.word == trans_count_subq.c.word_text,
+                )
                 .where(
                     Word.status == "published",
                     Word.deleted_at.is_(None),
                     Word.risk_level != "high",
                 )
-                .order_by(Word.vote_count.desc(), Word.view_count.desc())
+                .order_by(
+                    func.coalesce(trans_count_subq.c.trans_count, 0).desc(),
+                    Word.view_count.desc(),
+                )
                 .limit(limit)
             )
-            .scalars()
             .all()
         )
-        return [self._to_card(w, self._hot_score(w)) for w in words]
+
+        # 热度分值：窗口内翻译次数为主，view_count 作为辅助加权
+        result: list[dict[str, Any]] = []
+        for word, heat in rows:
+            # 热度 = 翻译次数 * 1.0 + view_count * 0.01（view_count 仅作微弱加权避免同分）
+            score = float(heat or 0) + (word.view_count or 0) * 0.01
+            card = self._to_card(word, score)
+            # 注入窗口内翻译次数，便于上层展示
+            card["heat"] = int(heat or 0)
+            result.append(card)
+        return result
 
     def get_history(self, user_id: int, db: Session) -> list[dict[str, Any]]:
         """获取用户学习历史。

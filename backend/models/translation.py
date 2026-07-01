@@ -4,9 +4,45 @@
 """
 from __future__ import annotations
 
-from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, JSON, String, Text, func
+from sqlalchemy import (
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    JSON,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 
 from models.base import Base
+
+
+class TranslationFavorite(Base):
+    """翻译结果收藏表（D12）。"""
+
+    __tablename__ = "translation_favorites"
+
+    id = Column(Integer, primary_key=True, autoincrement=True, comment="主键")
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, comment="用户")
+    translation_id = Column(
+        Integer, ForeignKey("translations.id"), nullable=False, comment="翻译记录"
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        server_default=func.current_timestamp(),
+        comment="收藏时间",
+    )
+
+    __table_args__ = (
+        Index("idx_translation_favorites_user_id", "user_id"),
+        UniqueConstraint(
+            "user_id", "translation_id", name="uk_translation_favorites_user_translation"
+        ),
+    )
 
 
 class Translation(Base):

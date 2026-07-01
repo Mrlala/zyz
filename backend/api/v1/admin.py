@@ -56,6 +56,7 @@ class ReviewRequest(BaseModel):
 
     action: str = Field(..., description="审核动作：approve/reject")
     comment: str | None = None
+    meaning: str | None = Field(None, description="审核通过时可选：覆盖提交的释义（D13）")
 
 
 # ---- 词条管理 ----
@@ -243,13 +244,16 @@ async def admin_review_submission(
     submission.status = new_status
     submission.reviewer_id = admin.id
     submission.reviewed_at = datetime.now(timezone.utc)
+    # 保存审核评论：拒绝时通常用于记录驳回原因，通过时如有备注也一并保存
+    if request.comment:
+        submission.review_comment = request.comment
 
     word_id = None
-    # 审核通过则创建正式词条
+    # 审核通过则创建正式词条（D13：审核员可通过 meaning 字段覆盖提交的释义）
     if new_status == "approved":
         new_word = Word(
             word=submission.word,
-            meaning=submission.meaning,
+            meaning=request.meaning or submission.meaning,
             example=submission.example,
             category_id=submission.category_id,
             status="published",

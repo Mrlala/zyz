@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -18,6 +18,7 @@ from api.dependencies import get_current_user_required, TOKEN_EXPIRES_IN
 from core.database import get_db
 from core.security import create_access_token
 from models.submission import Submission
+from models.translation import Translation, TranslationFavorite
 from models.user import Favorite, User
 from models.achievement import UserAchievement
 from schemas import BaseResponse, PreferencesUpdate, RegisterRequest, LoginRequest
@@ -176,3 +177,138 @@ def _next_level_exp(current_exp: int) -> int:
         if current_exp < threshold:
             return threshold
     return LEVEL_THRESHOLDS[-1]
+
+
+@router.get("/favorites", response_model=BaseResponse)
+async def list_favorites(
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(20, ge=1, le=100, description="每页数量"),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user_required),
+) -> BaseResponse:
+    """获取当前用户收藏的词条列表（分页）。"""
+    from models.word import Word
+    from models.category import Category
+
+    # 基础查询：当前用户的收藏 + 关联词条
+    base = (
+        select(Favorite, Word)
+        .join(Word, Favorite.word_id == Word.id)
+        .where(
+            Favorite.user_id == user.id,
+            Word.status == "published",
+            Word.deleted_at.is_(None),
+        )
+    )
+    total = db.execute(
+        select(func.count()).select_from(base.subquery())
+    ).scalar_one()
+
+    # 分页 + 按收藏时间倒序
+    rows = db.execute(
+        base.order_by(Favorite.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    ).all()
+
+    # 批量查询分类
+    category_ids = {w.id: w.category_id for _, w in rows if w.category_id}
+    categories = {}
+    if category_ids:
+        cats = db.execute(
+            select(Category).where(Category.id.in_(set(category_ids.values())))
+        ).scalars().all()
+        categories = {c.id: c for c in cats}
+
+    items = []
+    for fav, w in rows:
+        cat = categories.get(w.category_id) if w.category_id else None
+        items.append({
+            "id": w.id,
+            "word": w.word,
+            "pinyin": w.pinyin,
+            "summary": w.summary,
+            "category_id": w.category_id,
+            "category_name": cat.name if cat else "",
+            "favorite_count": 0,
+            "is_favorited": True,
+            "favorited_at": fav.created_at.isoformat() if fav.created_at else None,
+        })
+
+    return BaseResponse(data={
+        "list": items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    })
+
+
+@router.post("/translations/{translation_id}/favorite", response_model=BaseResponse)
+async def toggle_translation_favorite(
+    translation_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user_required),
+) -> BaseResponse:
+    """收藏/取消收藏翻译结果（D12，toggle 切换）。"""
+    translation = db.get(Translation, translation_id)
+    if translation is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="翻译记录不存在")
+
+    existing = db.execute(
+        select(TranslationFavorite).where(
+            TranslationFavorite.user_id == user.id,
+            TranslationFavorite.translation_id == translation_id,
+        )
+    ).scalars().first()
+
+    if existing:
+        db.delete(existing)
+        db.commit()
+        return BaseResponse(data={"is_favorited": False, "message": "已取消收藏"})
+
+    fav = TranslationFavorite(user_id=user.id, translation_id=translation_id)
+    db.add(fav)
+    db.commit()
+    return BaseResponse(data={"is_favorited": True, "message": "已收藏"})
+
+
+@router.get("/translation-favorites", response_model=BaseResponse)
+async def list_translation_favorites(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user_required),
+) -> BaseResponse:
+    """获取当前用户收藏的翻译结果列表（D12，分页）。"""
+    base = (
+        select(TranslationFavorite, Translation)
+        .join(Translation, TranslationFavorite.translation_id == Translation.id)
+        .where(TranslationFavorite.user_id == user.id)
+    )
+    total = db.execute(
+        select(func.count()).select_from(base.subquery())
+    ).scalar_one()
+
+    rows = db.execute(
+        base.order_by(TranslationFavorite.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    ).all()
+
+    items = [
+        {
+            "id": t.id,
+            "original_text": t.original_text,
+            "result": t.result,
+            "mode": t.mode,
+            "favorited_at": fav.created_at.isoformat() if fav.created_at else None,
+        }
+        for fav, t in rows
+    ]
+
+    return BaseResponse(data={
+        "list": items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    })

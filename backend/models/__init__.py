@@ -26,6 +26,7 @@ __all__ = [
     "Favorite",
     # 翻译
     "Translation",
+    "TranslationFavorite",
     # 提交与纠错
     "Submission",
     "CorrectionReport",

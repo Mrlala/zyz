@@ -103,7 +103,8 @@ async def list_my_submissions(
             "status": s.status,
             "submitted_at": s.created_at.isoformat() if s.created_at else None,
             "reviewed_at": s.reviewed_at.isoformat() if s.reviewed_at else None,
-            "review_comment": None,
+            # 审核评论：拒绝时为驳回原因，通过时为审核备注，未审核时为 None
+            "review_comment": s.review_comment,
         }
         for s in submissions
     ]

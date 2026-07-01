@@ -90,14 +90,16 @@ async def get_ranking(
         )
 
     service = HotWordService()
-    items = service.get_ranking(db, limit=limit)
+    # 将 period 透传给 service，按时间窗口统计真实热度
+    items = service.get_ranking(db, limit=limit, period=period)
 
     ranking_list = [
         {
             "rank": idx + 1,
             "id": item.get("word_id"),
             "word": item.get("word", ""),
-            "heat": item.get("hot_score", 0),
+            # heat 优先取 service 注入的窗口内翻译次数，回退到 hot_score
+            "heat": item.get("heat", item.get("hot_score", 0)),
             "vote_count": item.get("vote_count", 0),
         }
         for idx, item in enumerate(items)

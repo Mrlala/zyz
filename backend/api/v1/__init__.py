@@ -15,6 +15,7 @@ from api.v1.feedback import router as feedback_router
 from api.v1.correction import router as correction_router
 from api.v1.submission import router as submission_router
 from api.v1.admin import router as admin_router
+from api.v1.config import router as config_router
 
 api_router = APIRouter()
 
@@ -38,5 +39,7 @@ api_router.include_router(correction_router)
 api_router.include_router(submission_router)
 # 后台管理接口（4.5.12）
 api_router.include_router(admin_router)
+# 配置查询接口（D16）
+api_router.include_router(config_router)
 
 __all__ = ["api_router"]

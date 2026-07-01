@@ -44,6 +44,8 @@ class Submission(Base):
         Integer, ForeignKey("users.id"), nullable=True, comment="审核人"
     )
     reviewed_at = Column(DateTime, nullable=True, comment="审核时间")
+    # 审核评论：审核拒绝时记录驳回原因，审核通过时可记录备注，供提交者查看
+    review_comment = Column(Text, nullable=True, comment="审核评论/驳回原因")
     created_at = Column(
         DateTime,
         nullable=False,
