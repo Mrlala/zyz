@@ -50,9 +50,43 @@ export function updatePreferences(data) {
   return put('/user/preferences', data)
 }
 
+/**
+ * 获取当前用户收藏的词条列表（分页）
+ * @param {object} params
+ * @param {number} params.page 页码
+ * @param {number} params.page_size 每页数量
+ * @returns {Promise<{list: array, total: number, page: number, page_size: number}>}
+ */
+export function getFavorites(params) {
+  return get('/user/favorites', params)
+}
+
+/**
+ * 收藏/取消收藏翻译结果（toggle 切换）
+ * @param {number} translationId 翻译记录 ID
+ * @returns {Promise<{is_favorited: boolean, message: string}>}
+ */
+export function toggleTranslationFavorite(translationId) {
+  return post(`/user/translations/${translationId}/favorite`)
+}
+
+/**
+ * 获取当前用户收藏的翻译结果列表（分页）
+ * @param {object} params
+ * @param {number} params.page 页码
+ * @param {number} params.page_size 每页数量
+ * @returns {Promise<{list: array, total: number, page: number, page_size: number}>}
+ */
+export function getTranslationFavorites(params) {
+  return get('/user/translation-favorites', params)
+}
+
 export default {
   register,
   login,
   getProfile,
-  updatePreferences
+  updatePreferences,
+  getFavorites,
+  toggleTranslationFavorite,
+  getTranslationFavorites
 }

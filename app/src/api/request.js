@@ -106,15 +106,20 @@ function request(options) {
         const statusCode = res.statusCode || 0
 
         if (statusCode === 401) {
-          handleUnauthorized()
-          reject(new Error('未授权或登录已失效'))
+          // 静默模式下不弹自动 toast、不清 token，交由调用方自行处理
+          if (!silent) handleUnauthorized()
+          const err401 = new Error('未授权或登录已失效')
+          err401.statusCode = 401
+          reject(err401)
           return
         }
 
         if (statusCode < 200 || statusCode >= 300) {
           const errMsg = (res.data && res.data.detail) || `请求失败（${statusCode}）`
           if (!silent) showError(errMsg)
-          reject(new Error(errMsg))
+          const httpErr = new Error(errMsg)
+          httpErr.statusCode = statusCode
+          reject(httpErr)
           return
         }
 
@@ -125,7 +130,9 @@ function request(options) {
         if (body.code !== undefined && body.code !== 0) {
           const msg = body.message || '请求失败'
           if (!silent) showError(msg)
-          reject(new Error(msg))
+          const bizErr = new Error(msg)
+          bizErr.code = body.code
+          reject(bizErr)
           return
         }
 

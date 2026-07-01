@@ -79,6 +79,27 @@
         "navigationStyle": "custom",
         "navigationBarTitleText": "我的提交"
       }
+    },
+    {
+      "path": "pages/mine/achievements",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "成就"
+      }
+    },
+    {
+      "path": "pages/admin/stats",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "数据统计"
+      }
+    },
+    {
+      "path": "pages/admin/words",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "词条管理"
+      }
     }
   ],
   "globalStyle": {

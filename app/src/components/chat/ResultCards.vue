@@ -162,7 +162,7 @@ function handleCopy(text) {
 }
 
 function handleFavorite() {
-  uni.showToast({ title: '已收藏', icon: 'success' })
+  emit('favorite')
 }
 
 function handleFollowUp() {
@@ -170,8 +170,8 @@ function handleFollowUp() {
 }
 
 function handleFeedback(type) {
+  // 仅向父组件抛出事件，toast 与备注收集由父组件统一处理，避免重复弹窗
   emit('feedback', type)
-  uni.showToast({ title: '感谢反馈', icon: 'success' })
 }
 </script>
 
@@ -239,6 +239,10 @@ function handleFeedback(type) {
   &__action-text {
     font-size: 12px;
     color: $text-secondary;
+
+    &--active {
+      color: $color-primary;
+    }
   }
 }
 

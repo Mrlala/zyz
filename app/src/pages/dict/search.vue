@@ -100,6 +100,7 @@ import { onLoad, onReachBottom } from '@dcloudio/uni-app'
 import { ArrowLeft, Search, X } from 'lucide-vue-next'
 import WordCard from '@/components/word/WordCard.vue'
 import * as wordApi from '@/api/word'
+import * as hotApi from '@/api/hot'
 import { useUserStore } from '@/store/modules/user'
 import storage from '@/utils/storage'
 
@@ -118,8 +119,8 @@ const loading = ref(false)
 const searched = ref(false)
 // 搜索历史
 const history = ref([])
-// 热门搜索词（本地预置）
-const hotKeywords = ['996', 'yyds', 'emo', '打工人', '躺平', '内卷', '破防', '社死']
+// 热门搜索词（从后端拉取，失败时降级为本地预置）
+const hotKeywords = ref(['996', 'yyds', 'emo', '打工人', '躺平', '内卷', '破防', '社死'])
 
 onLoad(() => {
   try {
@@ -129,7 +130,23 @@ onLoad(() => {
     statusBarHeight.value = 0
   }
   history.value = storage.get(HISTORY_KEY) || []
+  // 拉取每日热词作为热门搜索
+  fetchHotKeywords()
 })
+
+// 拉取每日热词（D10）
+async function fetchHotKeywords() {
+  try {
+    const data = await hotApi.getDaily()
+    const list = data?.list || data || []
+    if (Array.isArray(list) && list.length) {
+      hotKeywords.value = list.map(item => item.word || item.name).filter(Boolean).slice(0, 10)
+    }
+  } catch (e) {
+    // 拉取失败保留本地预置
+    console.warn('热词拉取失败，使用本地预置:', e)
+  }
+}
 
 onReachBottom(() => {
   loadMore()

@@ -6,7 +6,7 @@
         <view class="chat-header__btn" @click="drawerOpen = true" aria-label="菜单">
           <Menu :size="20" color="#6B7280" />
         </view>
-        <view class="chat-header__btn chat-header__btn--sunken" @click="handleNewChat" aria-label="新对话">
+        <view class="chat-header__btn chat-header__btn--sunken" @click="handleHeaderNewChat" aria-label="新对话">
           <Plus :size="18" color="#6B7280" />
         </view>
       </view>
@@ -20,17 +20,23 @@
       :scroll-into-view="scrollAnchor"
     >
       <!-- 空状态 -->
-      <view v-if="!translateStore.currentResult && !translateStore.isLoading" class="chat-empty">
-        <view class="chat-empty__title">中译中</view>
-        <view class="chat-empty__subtitle">看不懂的中文，翻成人话</view>
-        <view class="chat-empty__modes">
-          <view
-            v-for="m in modes"
-            :key="m.key"
-            class="chat-empty__mode"
-            :class="{ 'chat-empty__mode--active': translateStore.mode === m.key }"
-            @click="switchMode(m.key)"
-          >{{ m.label }}</view>
+      <view
+        v-if="!translateStore.currentResult && !translateStore.isLoading"
+        class="chat-empty"
+        :style="{ minHeight: 'calc(100vh - ' + (statusBarHeight + 54 + 72) + 'px - 32px)' }"
+      >
+        <view class="chat-empty__center">
+          <view class="chat-empty__title">中译中</view>
+          <view class="chat-empty__subtitle">看不懂的中文，翻成人话</view>
+          <view class="chat-empty__modes">
+            <view
+              v-for="m in modes"
+              :key="m.key"
+              class="chat-empty__mode"
+              :class="{ 'chat-empty__mode--active': translateStore.mode === m.key }"
+              @click="switchMode(m.key)"
+            >{{ m.label }}</view>
+          </view>
         </view>
       </view>
 
@@ -61,6 +67,7 @@
           @relatedClick="handleRelatedClick"
           @copy="handleCopy"
           @feedback="handleFeedback"
+          @favorite="handleFavorite"
         />
       </view>
 
@@ -69,8 +76,26 @@
 
     <!-- 底部输入框 -->
     <view class="chat-input" :style="{ paddingBottom: 'calc(8px + env(safe-area-inset-bottom, 0px))' }">
+      <!-- +号浮窗：快捷功能 -->
+      <view v-if="plusOpen" class="chat-popover">
+        <view class="chat-popover__arrow"></view>
+        <view class="chat-popover__grid">
+          <view
+            v-for="fn in functions"
+            :key="fn.key"
+            class="chat-popover__item"
+            @click="handlePopoverNavigate(fn.url)"
+          >
+            <view class="chat-popover__icon">
+              <component :is="fn.icon" :size="20" color="#FE2C55" />
+            </view>
+            <text class="chat-popover__label">{{ fn.label }}</text>
+          </view>
+        </view>
+      </view>
+
       <view class="chat-input__box">
-        <view class="chat-input__plus" aria-label="能力菜单">
+        <view class="chat-input__plus" :class="{ 'chat-input__plus--active': plusOpen }" @click="handlePlus" aria-label="能力菜单">
           <Plus :size="16" color="#6B7280" />
         </view>
         <textarea
@@ -86,14 +111,7 @@
           @confirm="handleTranslate"
         />
         <view
-          v-if="!inputText.trim()"
-          class="chat-input__mic"
-          aria-label="语音输入"
-        >
-          <Mic :size="18" color="#9CA3AF" />
-        </view>
-        <view
-          v-else
+          v-if="inputText.trim()"
           class="chat-input__send"
           :class="{ 'chat-input__send--disabled': translateStore.isLoading }"
           @click="handleTranslate"
@@ -103,6 +121,9 @@
         </view>
       </view>
     </view>
+
+    <!-- 浮窗遮罩（点击关闭浮窗） -->
+    <view v-if="plusOpen" class="chat-popover-mask" @click="plusOpen = false"></view>
 
     <!-- 左侧抽屉 -->
     <Drawer
@@ -118,12 +139,13 @@
 <script setup>
 import { ref, nextTick } from 'vue'
 import { onLoad, onShow, onUnload } from '@dcloudio/uni-app'
-import { Menu, Plus, ArrowUp, Mic } from 'lucide-vue-next'
+import { Menu, Plus, ArrowUp, BookOpen, ShieldCheck, Trophy, History, Star, Send } from 'lucide-vue-next'
 import { useTranslateStore } from '@/store/modules/translate'
 import { useUserStore } from '@/store/modules/user'
 import ResultCards from '@/components/chat/ResultCards.vue'
 import Drawer from '@/components/chat/Drawer.vue'
 import * as feedbackApi from '@/api/feedback'
+import * as userApi from '@/api/user'
 import storage from '@/utils/storage'
 
 const translateStore = useTranslateStore()
@@ -137,6 +159,8 @@ const statusBarHeight = ref(0)
 const inputText = ref('')
 // 抽屉开关
 const drawerOpen = ref(false)
+// +号浮窗开关
+const plusOpen = ref(false)
 // 滚动锚点（用于滚到底部）
 const scrollAnchor = ref('')
 
@@ -145,6 +169,16 @@ const modes = [
   { key: 'quick', label: '快速解析' },
   { key: 'deep', label: '深度解析' },
   { key: 'dict', label: '词典模式' }
+]
+
+// 快捷功能入口（从抽屉迁移到首页空状态）
+const functions = [
+  { key: 'dict', label: '词库', url: '/pages/dict/index', icon: BookOpen },
+  { key: 'ranking', label: '热词排行', url: '/pages/hot/ranking', icon: Trophy },
+  { key: 'history', label: '浏览历史', url: '/pages/mine/history', icon: History },
+  { key: 'favorites', label: '收藏', url: '/pages/mine/favorites', icon: Star },
+  { key: 'submissions', label: '我的提交', url: '/pages/mine/submissions', icon: Send },
+  { key: 'review', label: '审核', url: '/pages/review/index', icon: ShieldCheck }
 ]
 
 function modeLabel(m) {
@@ -196,6 +230,16 @@ function handleNewChat() {
   drawerOpen.value = false
 }
 
+// 右上角+号：空状态提示已在新对话，有结果则创建新对话
+function handleHeaderNewChat() {
+  if (!translateStore.currentResult && !translateStore.isLoading) {
+    uni.showToast({ title: '已在新对话中', icon: 'none' })
+    return
+  }
+  handleNewChat()
+  uni.showToast({ title: '已创建新对话', icon: 'none' })
+}
+
 // 执行翻译
 async function handleTranslate() {
   const text = inputText.value.trim()
@@ -241,19 +285,75 @@ function handleCopy(text) {
   })
 }
 
-// 反馈
+// 反馈：accurate 直接提交；inaccurate 弹输入框收集备注后提交
 function handleFeedback(type) {
   const result = translateStore.currentResult
   if (!result || !result.translation_id) return
+
+  if (type === 'inaccurate') {
+    uni.showModal({
+      title: '反馈说明',
+      editable: true,
+      placeholderText: '请简要说明哪里不准确（可选）',
+      success: (res) => {
+        if (res.confirm) {
+          submitFeedback(type, res.content || '')
+        }
+      }
+    })
+    return
+  }
+  submitFeedback(type, '')
+}
+
+// 提交反馈到后端
+function submitFeedback(type, comment) {
+  const result = translateStore.currentResult
   feedbackApi.submitFeedback({
     translation_id: result.translation_id,
-    type
-  }).catch(() => {})
+    type,
+    comment: comment || undefined
+  }).then(() => {
+    uni.showToast({ title: '感谢反馈', icon: 'success' })
+  }).catch(() => {
+    uni.showToast({ title: '反馈失败', icon: 'none' })
+  })
+}
+
+// 收藏/取消收藏翻译结果（D12）
+async function handleFavorite() {
+  const result = translateStore.currentResult
+  if (!result || !result.translation_id) {
+    uni.showToast({ title: '暂无可收藏的结果', icon: 'none' })
+    return
+  }
+  try {
+    const data = await userApi.toggleTranslationFavorite(result.translation_id)
+    // 同步更新 store 中的收藏状态，驱动 UI 切换
+    result.is_translation_favorited = !!data?.is_favorited
+    uni.showToast({ title: data?.message || '操作成功', icon: 'success' })
+  } catch (err) {
+    console.error('收藏失败', err)
+    uni.showToast({ title: '收藏失败', icon: 'none' })
+  }
 }
 
 // 抽屉导航
 function handleNavigate(url) {
   drawerOpen.value = false
+  setTimeout(() => {
+    uni.navigateTo({ url })
+  }, 200)
+}
+
+// +号按钮：切换浮窗
+function handlePlus() {
+  plusOpen.value = !plusOpen.value
+}
+
+// 浮窗内导航
+function handlePopoverNavigate(url) {
+  plusOpen.value = false
   setTimeout(() => {
     uni.navigateTo({ url })
   }, 200)
@@ -315,11 +415,18 @@ function handleSelectHistory(item) {
 
 /* ============ 空状态 ============ */
 .chat-empty {
-  height: 100%;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  padding: 24px 0;
+
+  &__center {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
 
   &__title {
     font-size: 26px;
@@ -355,6 +462,74 @@ function handleSelectHistory(item) {
       border-color: $color-primary;
     }
   }
+}
+
+/* ============ +号浮窗 ============ */
+.chat-popover {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 12px;
+  width: 260px;
+  background-color: $bg-card;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  padding: 12px;
+  z-index: 35;
+
+  &__arrow {
+    position: absolute;
+    bottom: -6px;
+    left: 20px;
+    width: 12px;
+    height: 12px;
+    background-color: $bg-card;
+    transform: rotate(45deg);
+    box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.05);
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  &__item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 4px;
+    border-radius: 10px;
+
+    &:active {
+      background-color: $bg-sunken;
+    }
+  }
+
+  &__icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background-color: rgba(254, 44, 85, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__label {
+    font-size: 12px;
+    color: $text-secondary;
+  }
+}
+
+/* 浮窗遮罩：z-index 低于 chat-input(30)，避免遮挡 popover */
+.chat-popover-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 29;
 }
 
 /* ============ 加载状态 ============ */
@@ -417,7 +592,7 @@ function handleSelectHistory(item) {
   right: 0;
   padding: 8px 16px;
   background: linear-gradient(to top, $bg-page 70%, transparent);
-  z-index: 50;
+  z-index: 30;
 
   &__box {
     display: flex;
@@ -438,6 +613,11 @@ function handleSelectHistory(item) {
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: background-color 0.2s;
+
+    &--active {
+      background-color: $color-primary;
+    }
   }
 
   &__textarea {
@@ -453,16 +633,6 @@ function handleSelectHistory(item) {
   &__placeholder {
     color: $text-tertiary;
     font-size: 14px;
-  }
-
-  &__mic {
-    flex-shrink: 0;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
   }
 
   &__send {

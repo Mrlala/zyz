@@ -20,10 +20,11 @@ export function getDaily() {
  * 对热词投票（后端默认 upvote）
  * @param {number} wordId 词条 ID
  * @param {string} voteType 投票类型：upvote（后端当前仅支持 upvote）
+ * @param {object} options 额外请求配置，如 { silent: true } 由调用方自定义错误提示
  * @returns {Promise<{word_id: number, vote_count: number, has_voted: boolean}>}
  */
-export function vote(wordId, voteType = 'upvote') {
-  return post(`/hot/${wordId}/vote`, { vote_type: voteType })
+export function vote(wordId, voteType = 'upvote', options = {}) {
+  return post(`/hot/${wordId}/vote`, { vote_type: voteType }, options)
 }
 
 /**

@@ -51,10 +51,10 @@
       <text class="group-title">偏好设置</text>
       <view class="group-card">
         <!-- 默认解析模式 -->
-        <view class="group-row" @click="showDeveloping">
+        <view class="group-row" @click="selectDefaultMode">
           <text class="group-row__label">默认解析模式</text>
           <view class="group-row__right">
-            <text class="group-row__value">快速解析</text>
+            <text class="group-row__value">{{ defaultModeLabel }}</text>
             <ChevronRight :size="16" color="#C0C4CC" />
           </view>
         </view>
@@ -65,7 +65,7 @@
           <view
             class="toggle-switch"
             :class="{ 'toggle-switch--on': darkMode }"
-            @click="darkMode = !darkMode"
+            @click="toggleDarkMode"
           >
             <view class="toggle-knob"></view>
           </view>
@@ -91,6 +91,24 @@
         <view class="group-row">
           <text class="group-row__label">版本</text>
           <text class="group-row__value">v{{ version }}</text>
+        </view>
+        <view class="group-divider"></view>
+        <!-- AI 服务状态（D16） -->
+        <view class="group-row">
+          <text class="group-row__label">AI 服务</text>
+          <view class="group-row__right">
+            <view
+              class="ai-dot"
+              :class="aiStatus.available ? 'ai-dot--on' : 'ai-dot--off'"
+            ></view>
+            <text class="group-row__value">{{ aiStatus.text }}</text>
+          </view>
+        </view>
+        <view class="group-divider"></view>
+        <!-- 我的成就 -->
+        <view class="group-row" @click="goAchievements">
+          <text class="group-row__label">我的成就</text>
+          <ChevronRight :size="16" color="#C0C4CC" />
         </view>
         <view class="group-divider"></view>
         <!-- 隐私政策 -->
@@ -122,18 +140,38 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import { ArrowLeft, ChevronRight } from 'lucide-vue-next'
 import { useUserStore } from '@/store/modules/user'
 import storage from '@/utils/storage'
 import { APP_VERSION } from '@/config/env'
+import * as configApi from '@/api/config'
 
 const userStore = useUserStore()
 
 const statusBarHeight = ref(0)
 const version = ref(APP_VERSION)
-const darkMode = ref(false)
 const pushNotify = ref(true)
+// AI 服务状态（D16）
+const aiStatus = ref({ available: false, text: '检测中...' })
+
+// 模式映射：前端 quick/deep → 后端 translate；dict → dict
+const modeOptions = [
+  { key: 'translate', label: '快速解析' },
+  { key: 'dict', label: '词典模式' }
+]
+
+// 默认解析模式
+const defaultModeLabel = computed(() => {
+  const m = userStore.preferences?.default_mode || 'translate'
+  const found = modeOptions.find(x => x.key === m)
+  return found ? found.label : '快速解析'
+})
+
+// 深色模式（从 preferences.theme 派生）
+const darkMode = computed(() => {
+  return userStore.preferences?.theme === 'dark'
+})
 
 const userName = computed(() => userStore.userInfo?.nickname || '匿名用户')
 const phoneText = computed(() => {
@@ -155,6 +193,56 @@ onLoad(() => {
     statusBarHeight.value = 0
   }
 })
+
+// 页面显示时主动拉取最新 profile（D4）与 AI 服务状态（D16）
+onShow(() => {
+  if (userStore.isLoggedIn) {
+    userStore.fetchProfile().catch(() => {})
+  }
+  fetchAiStatus()
+})
+
+// 拉取 AI 服务配置状态
+async function fetchAiStatus() {
+  try {
+    const data = await configApi.getAiStatus()
+    aiStatus.value = {
+      available: !!data?.available,
+      text: data?.mode || (data?.available ? 'AI实时翻译' : '本地词库模式')
+    }
+  } catch (e) {
+    aiStatus.value = { available: false, text: '检测失败' }
+  }
+}
+
+// 选择默认解析模式
+function selectDefaultMode() {
+  uni.showActionSheet({
+    itemList: modeOptions.map(x => x.label),
+    success: (res) => {
+      const selected = modeOptions[res.tapIndex]
+      userStore.updatePreferences({ default_mode: selected.key })
+        .then(() => {
+          uni.showToast({ title: '已更新', icon: 'success' })
+        })
+        .catch(() => {
+          uni.showToast({ title: '更新失败', icon: 'none' })
+        })
+    }
+  })
+}
+
+// 切换深色模式
+function toggleDarkMode() {
+  const next = darkMode.value ? 'light' : 'dark'
+  userStore.updatePreferences({ theme: next })
+    .then(() => {
+      uni.showToast({ title: darkMode.value ? '已关闭' : '已开启', icon: 'none' })
+    })
+    .catch(() => {
+      uni.showToast({ title: '更新失败', icon: 'none' })
+    })
+}
 
 // 占位提示
 function showDeveloping() {
@@ -195,6 +283,11 @@ function handleLogout() {
 
 function handleBack() {
   uni.navigateBack({ delta: 1 })
+}
+
+// 跳转成就页
+function goAchievements() {
+  uni.navigateTo({ url: '/pages/mine/achievements' })
 }
 </script>
 
@@ -355,6 +448,23 @@ function handleBack() {
 
 .toggle-switch--on .toggle-knob {
   transform: translateX(20px);
+}
+
+/* ============ AI 服务状态圆点 ============ */
+.ai-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+
+  &--on {
+    background-color: $color-success;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+  }
+
+  &--off {
+    background-color: $border-color;
+  }
 }
 
 /* ============ 退出登录 ============ */

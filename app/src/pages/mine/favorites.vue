@@ -78,24 +78,47 @@
       </template>
     </template>
 
-    <!-- 翻译结果（占位空状态） -->
+    <!-- 翻译结果收藏（D12） -->
     <template v-else>
-      <view class="empty-state">
-        <view class="empty-state__icon">
-          <Heart :size="32" color="#9CA3AF" />
-        </view>
-        <text class="empty-state__text">暂无翻译收藏</text>
-        <text class="empty-state__sub">翻译结果收藏功能即将上线</text>
+      <view v-if="tLoading" class="state-tip">
+        <text>加载中...</text>
       </view>
+      <template v-else>
+        <view v-if="translations.length" class="count-row">
+          <text class="count-row__text">共 {{ tTotal }} 个收藏</text>
+        </view>
+        <view v-if="translations.length" class="fav-list">
+          <view
+            v-for="item in translations"
+            :key="item.id"
+            class="fav-card"
+          >
+            <view class="fav-card__info">
+              <text class="fav-card__word">{{ item.original_text }}</text>
+              <text class="fav-card__definition">{{ summarizeResult(item.result) }}</text>
+              <view class="fav-card__meta">
+                <text class="fav-card__time">{{ formatTime(item.favorited_at) }}</text>
+              </view>
+            </view>
+          </view>
+        </view>
+        <view v-else class="empty-state">
+          <view class="empty-state__icon">
+            <Heart :size="32" color="#9CA3AF" />
+          </view>
+          <text class="empty-state__text">暂无翻译收藏</text>
+          <text class="empty-state__sub">在翻译结果页点击收藏即可保存</text>
+        </view>
+      </template>
     </template>
   </view>
 </template>
 
 <script setup>
 import { ref } from 'vue'
-import { onLoad, onShow } from '@dcloudio/uni-app'
+import { onLoad, onShow, onReachBottom } from '@dcloudio/uni-app'
 import { ArrowLeft, Heart } from 'lucide-vue-next'
-import * as wordApi from '@/api/word'
+import * as userApi from '@/api/user'
 import { useUserStore } from '@/store/modules/user'
 
 const userStore = useUserStore()
@@ -105,6 +128,10 @@ const words = ref([])
 const loading = ref(true)
 const activeTab = ref('words')
 const editMode = ref(false)
+const page = ref(1)
+const pageSize = 20
+const total = ref(0)
+const loadingMore = ref(false)
 
 const tabs = [
   { label: '词条', value: 'words' },
@@ -124,26 +151,44 @@ onShow(() => {
   fetchFavorites()
 })
 
-// 获取收藏列表：基于本地收藏 ID 拉取词条详情
+// 获取收藏列表：服务端分页
 async function fetchFavorites() {
   loading.value = true
-  const ids = userStore.favoriteIds || []
-  if (!ids.length) {
-    words.value = []
-    loading.value = false
-    return
-  }
+  page.value = 1
   try {
-    const tasks = ids.map((id) => wordApi.getWordDetail(id).catch(() => null))
-    const list = await Promise.all(tasks)
-    words.value = list.filter(Boolean)
+    const data = await userApi.getFavorites({ page: 1, page_size: pageSize })
+    words.value = data?.list || []
+    total.value = data?.total || 0
   } catch (err) {
     console.error('获取收藏列表失败', err)
     words.value = []
+    total.value = 0
   } finally {
     loading.value = false
   }
 }
+
+// 加载更多
+async function loadMore() {
+  if (loadingMore.value || words.value.length >= total.value) return
+  loadingMore.value = true
+  try {
+    const next = page.value + 1
+    const data = await userApi.getFavorites({ page: next, page_size: pageSize })
+    if (data?.list?.length) {
+      words.value.push(...data.list)
+      page.value = next
+    }
+  } catch (e) {
+    console.warn('加载更多失败', e)
+  } finally {
+    loadingMore.value = false
+  }
+}
+
+onReachBottom(() => {
+  loadMore()
+})
 
 // 取消收藏
 async function handleFavorite(word) {
@@ -161,6 +206,11 @@ async function handleFavorite(word) {
 
 function switchTab(value) {
   activeTab.value = value
+  if (value === 'words' && !words.value.length) {
+    fetchFavorites()
+  } else if (value === 'translate' && !translations.value.length) {
+    fetchTranslationFavorites()
+  }
 }
 
 function handleEdit() {

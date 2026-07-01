@@ -14,6 +14,44 @@
     </view>
     <view class="top-bar-placeholder" :style="{ height: (statusBarHeight + 54) + 'px' }"></view>
 
+    <!-- 今日热词 -->
+    <view class="daily">
+      <view class="daily__header">
+        <view class="daily__title-wrap">
+          <Flame :size="16" color="#FE2C55" />
+          <text class="daily__title">今日热词</text>
+        </view>
+        <text v-if="dailyDateText" class="daily__date">{{ dailyDateText }}</text>
+      </view>
+
+      <view v-if="dailyLoading" class="daily__tip">
+        <text>加载中...</text>
+      </view>
+      <view v-else-if="!dailyList.length" class="daily__tip">
+        <text>暂无今日热词</text>
+      </view>
+      <scroll-view v-else scroll-x class="daily__scroll" :show-scrollbar="false">
+        <view class="daily__cards">
+          <view
+            v-for="(item, idx) in dailyList"
+            :key="item.id || item.word_id || idx"
+            class="daily-card"
+            @click="handleItemClick(item)"
+          >
+            <view class="daily-card__head">
+              <text class="daily-card__word">{{ item.word || item.name }}</text>
+              <text v-if="item.pinyin" class="daily-card__pinyin">{{ item.pinyin }}</text>
+            </view>
+            <text class="daily-card__def">{{ item.definition || item.summary || item.desc || '——' }}</text>
+            <view class="daily-card__hot">
+              <Flame :size="11" color="#FE2C55" />
+              <text class="daily-card__hot-text">{{ formatCount(item) }}</text>
+            </view>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+
     <!-- 时段标签 -->
     <view class="period-tabs">
       <view
@@ -45,7 +83,14 @@
               <text class="podium__circle-text">2</text>
             </view>
             <text class="podium__word podium__word--2nd">{{ top3[1].word || top3[1].name }}</text>
-            <text class="podium__count">{{ formatCount(top3[1]) }}</text>
+            <view
+              class="podium__vote"
+              :class="{ 'podium__vote--active': isVoted(top3[1]) }"
+              @click.stop="handleVote(top3[1])"
+            >
+              <ThumbsUp :size="11" :color="isVoted(top3[1]) ? '#FE2C55' : '#9CA3AF'" />
+              <text class="podium__vote-text">{{ formatCount(top3[1]) }}</text>
+            </view>
           </view>
 
           <!-- 1st -->
@@ -54,7 +99,14 @@
               <text class="podium__circle-text">1</text>
             </view>
             <text class="podium__word podium__word--1st">{{ top3[0].word || top3[0].name }}</text>
-            <text class="podium__count">{{ formatCount(top3[0]) }}</text>
+            <view
+              class="podium__vote"
+              :class="{ 'podium__vote--active': isVoted(top3[0]) }"
+              @click.stop="handleVote(top3[0])"
+            >
+              <ThumbsUp :size="11" :color="isVoted(top3[0]) ? '#FE2C55' : '#9CA3AF'" />
+              <text class="podium__vote-text">{{ formatCount(top3[0]) }}</text>
+            </view>
           </view>
 
           <!-- 3rd -->
@@ -63,7 +115,14 @@
               <text class="podium__circle-text">3</text>
             </view>
             <text class="podium__word podium__word--3rd">{{ top3[2].word || top3[2].name }}</text>
-            <text class="podium__count">{{ formatCount(top3[2]) }}</text>
+            <view
+              class="podium__vote"
+              :class="{ 'podium__vote--active': isVoted(top3[2]) }"
+              @click.stop="handleVote(top3[2])"
+            >
+              <ThumbsUp :size="11" :color="isVoted(top3[2]) ? '#FE2C55' : '#9CA3AF'" />
+              <text class="podium__vote-text">{{ formatCount(top3[2]) }}</text>
+            </view>
           </view>
         </view>
 
@@ -78,7 +137,14 @@
           >
             <text class="rest-list__rank">{{ idx + 4 }}</text>
             <text class="rest-list__word">{{ item.word || item.name }}</text>
-            <text class="rest-list__count">{{ formatCount(item) }}</text>
+            <view
+              class="rest-list__vote"
+              :class="{ 'rest-list__vote--active': isVoted(item) }"
+              @click.stop="handleVote(item)"
+            >
+              <ThumbsUp :size="13" :color="isVoted(item) ? '#FE2C55' : '#9CA3AF'" />
+              <text class="rest-list__vote-count">{{ formatCount(item) }}</text>
+            </view>
           </view>
         </view>
       </template>
@@ -89,13 +155,23 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { ArrowLeft, SlidersHorizontal } from 'lucide-vue-next'
+import { ArrowLeft, SlidersHorizontal, ThumbsUp, Flame } from 'lucide-vue-next'
 import * as hotApi from '@/api/hot'
 
 const statusBarHeight = ref(0)
 const period = ref('daily')
 const list = ref([])
 const loading = ref(true)
+
+// 每日热词
+const dailyList = ref([])
+const dailyDate = ref('')
+const dailyLoading = ref(true)
+
+// 投票状态：已投票词条 id 集合（响应式，驱动按钮变色）
+const votedIds = ref(new Set())
+// 投票请求进行中的 id（非响应式，仅做防重复点击）
+const votingIds = new Set()
 
 // 时段标签（文案对齐：daily→今日, weekly→本周, monthly→本月）
 const periods = [
@@ -108,6 +184,14 @@ const periods = [
 const top3 = computed(() => list.value.slice(0, 3))
 const rest = computed(() => list.value.slice(3))
 
+// 今日热词日期文案：2026-07-01 → 7月1日
+const dailyDateText = computed(() => {
+  if (!dailyDate.value) return ''
+  const m = dailyDate.value.match(/(\d{4})-(\d{1,2})-(\d{1,2})/)
+  if (m) return `${parseInt(m[2], 10)}月${parseInt(m[3], 10)}日`
+  return dailyDate.value
+})
+
 onLoad(() => {
   try {
     const sysInfo = uni.getSystemInfoSync()
@@ -115,8 +199,24 @@ onLoad(() => {
   } catch (e) {
     statusBarHeight.value = 0
   }
+  fetchDaily()
   fetchRanking()
 })
+
+// 获取每日热词
+async function fetchDaily() {
+  dailyLoading.value = true
+  try {
+    const data = await hotApi.getDaily()
+    dailyList.value = (data && data.list) || []
+    dailyDate.value = (data && data.date) || ''
+  } catch (err) {
+    console.error('获取每日热词失败', err)
+    dailyList.value = []
+  } finally {
+    dailyLoading.value = false
+  }
+}
 
 // 获取排行榜
 async function fetchRanking() {
@@ -152,6 +252,55 @@ function handleItemClick(word) {
   const id = word.id || word.word_id
   if (id) {
     uni.navigateTo({ url: `/pages/word-detail/index?id=${id}` })
+  }
+}
+
+// 是否已投票（本地标记或后端返回的 has_voted）
+function isVoted(item) {
+  const id = item.id || item.word_id
+  if (!id) return false
+  return votedIds.value.has(id) || !!item.has_voted
+}
+
+// 投票
+async function handleVote(item) {
+  const id = item.id || item.word_id
+  if (!id) return
+  // 防止重复点击
+  if (votingIds.has(id)) return
+  votingIds.add(id)
+  try {
+    // 静默调用，错误提示由本函数统一控制
+    await hotApi.vote(id, 'upvote', { silent: true })
+    votedIds.value.add(id)
+    incrementHotness(item)
+    uni.showToast({ title: '投票成功', icon: 'success' })
+  } catch (err) {
+    const status = err && err.statusCode
+    if (status === 401) {
+      uni.showToast({ title: '请先登录', icon: 'none' })
+    } else if (status === 409) {
+      // 重复投票：标记为已投，避免再次请求
+      votedIds.value.add(id)
+      uni.showToast({ title: '已投过票', icon: 'none' })
+    } else {
+      uni.showToast({ title: (err && err.message) || '投票失败', icon: 'none' })
+    }
+  } finally {
+    votingIds.delete(id)
+  }
+}
+
+// 投票成功后热度 +1（兼容多种字段命名）
+function incrementHotness(item) {
+  if (typeof item.hotness === 'number') {
+    item.hotness += 1
+  } else if (typeof item.hot_score === 'number') {
+    item.hot_score += 1
+  } else if (typeof item.vote_count === 'number') {
+    item.vote_count += 1
+  } else {
+    item.hotness = (item.hotness || 0) + 1
   }
 }
 
@@ -204,6 +353,109 @@ function handleBack() {
 
 .top-bar-placeholder {
   width: 100%;
+}
+
+/* ============ 今日热词 ============ */
+.daily {
+  margin: 8px 0 4px;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    margin-bottom: 10px;
+  }
+
+  &__title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  &__title {
+    font-size: 16px;
+    font-weight: 700;
+    color: $text-primary;
+  }
+
+  &__date {
+    font-size: 12px;
+    color: $text-tertiary;
+  }
+
+  &__tip {
+    padding: 24px 0;
+    text-align: center;
+    font-size: 13px;
+    color: $text-tertiary;
+  }
+
+  &__scroll {
+    width: 100%;
+    white-space: nowrap;
+  }
+
+  &__cards {
+    display: inline-flex;
+    gap: 10px;
+    padding: 0 16px 6px;
+  }
+}
+
+.daily-card {
+  flex-shrink: 0;
+  width: 140px;
+  padding: 12px;
+  border-radius: 12px;
+  background-color: $bg-card;
+  box-shadow: $shadow-sm;
+  box-sizing: border-box;
+
+  &__head {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__word {
+    font-size: 16px;
+    font-weight: 700;
+    color: $text-primary;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__pinyin {
+    font-size: 11px;
+    color: $text-tertiary;
+  }
+
+  &__def {
+    margin-top: 8px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: $text-secondary;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    height: 36px;
+  }
+
+  &__hot {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+
+  &__hot-text {
+    font-size: 11px;
+    font-weight: 600;
+    color: $color-primary;
+  }
 }
 
 /* ============ 时段标签 ============ */
@@ -317,10 +569,29 @@ function handleBack() {
     }
   }
 
-  &__count {
-    margin-top: 2px;
-    font-size: 11px;
-    color: $text-tertiary;
+  &__vote {
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 3px 8px;
+    border-radius: 10px;
+    background-color: $bg-sunken;
+
+    &-text {
+      font-size: 11px;
+      font-weight: 600;
+      color: $text-tertiary;
+    }
+
+    &--active {
+      background-color: rgba(254, 44, 85, 0.1);
+
+      .podium__vote-text {
+        color: $color-primary;
+      }
+    }
   }
 }
 
@@ -363,11 +634,29 @@ function handleBack() {
     white-space: nowrap;
   }
 
-  &__count {
+  &__vote {
     flex-shrink: 0;
     margin-left: 8px;
-    font-size: 12px;
-    color: $text-tertiary;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    background-color: $bg-sunken;
+
+    &-count {
+      font-size: 12px;
+      font-weight: 600;
+      color: $text-tertiary;
+    }
+
+    &--active {
+      background-color: rgba(254, 44, 85, 0.1);
+
+      .rest-list__vote-count {
+        color: $color-primary;
+      }
+    }
   }
 }
 </style>

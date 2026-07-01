@@ -7,8 +7,8 @@
           <ArrowLeft :size="20" color="#6B7280" />
         </view>
         <text class="top-bar__title">词条审核</text>
-        <view class="top-bar__btn" @click="handleFilter">
-          <SlidersHorizontal :size="18" color="#6B7280" />
+        <view class="top-bar__btn" @click="handleMenu">
+          <BarChart3 :size="18" color="#6B7280" />
         </view>
       </view>
     </view>
@@ -50,8 +50,13 @@
 
     <!-- 审核卡片列表 -->
     <view class="review-list">
+      <!-- 空状态 -->
+      <view v-if="!loading && !list.length" class="review-empty">
+        <text class="review-empty__text">暂无{{ filterTabs.find(t => t.value === activeFilter)?.label || '' }}数据</text>
+      </view>
+
       <view
-        v-for="item in filteredList"
+        v-for="item in list"
         :key="item.id"
         class="review-card"
         :class="`review-card--${item.status}`"
@@ -74,6 +79,12 @@
         <!-- 释义 -->
         <text class="review-card__definition" :class="{ 'review-card__definition--rejected': item.status === 'rejected' }">{{ item.definition }}</text>
 
+        <!-- 驳回原因（已拒绝且有关键词） -->
+        <view v-if="item.status === 'rejected' && item.reviewComment" class="review-card__example">
+          <MessageSquare :size="14" color="#EF4444" />
+          <text class="review-card__example-text">驳回原因：{{ item.reviewComment }}</text>
+        </view>
+
         <!-- 例句气泡（仅待审核） -->
         <view v-if="item.status === 'pending' && item.example" class="review-card__example">
           <MessageSquare :size="14" color="#9CA3AF" />
@@ -83,7 +94,7 @@
         <!-- 提交人 -->
         <view class="review-card__submitter">
           <view class="review-card__avatar">
-            <text class="review-card__avatar-text">{{ item.submitter.charAt(0) }}</text>
+            <text class="review-card__avatar-text">{{ (item.submitter || '?').charAt(0) }}</text>
           </view>
           <text class="review-card__submitter-text">用户·{{ item.submitter }} 提交</text>
           <CheckCircle
@@ -122,70 +133,34 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import {
-  ArrowLeft, SlidersHorizontal, Check, Pencil, X,
+  ArrowLeft, BarChart3, Check, Pencil, X,
   CheckCircle, XCircle, MessageSquare
 } from 'lucide-vue-next'
+import * as adminApi from '@/api/admin'
 
 const statusBarHeight = ref(0)
-const activeFilter = ref('all')
+const activeFilter = ref('pending')
+const loading = ref(true)
 
-// 静态统计数据
+// 统计数据
 const stats = ref({
-  pending: 12,
-  approved: 156,
-  rejected: 8,
-  today: 5
+  pending: 0,
+  approved: 0,
+  rejected: 0,
+  today: 0
 })
 
 // 筛选标签
 const filterTabs = [
-  { label: '全部', value: 'all' },
   { label: '待审核', value: 'pending' },
   { label: '已通过', value: 'approved' },
   { label: '已拒绝', value: 'rejected' }
 ]
 
-// 静态审核数据（占位）
-const list = ref([
-  {
-    id: 1,
-    status: 'pending',
-    word: '电子榨菜',
-    category: '网络用语',
-    definition: '吃饭时看的下饭视频或内容，像榨菜一样开胃提味',
-    example: '今晚的电子榨菜准备好了吗？',
-    submitter: '李**',
-    time: '2025-06-30 14:23'
-  },
-  {
-    id: 2,
-    status: 'approved',
-    word: '尊嘟假嘟',
-    category: '流行语',
-    definition: '真的假的的谐音卖萌说法，表示惊讶或质疑',
-    example: '',
-    submitter: '王**',
-    time: '2025-06-30 11:05'
-  },
-  {
-    id: 3,
-    status: 'rejected',
-    word: 'yyds',
-    category: '字母缩写',
-    definition: '该词条已存在于词库中，无需重复收录',
-    example: '',
-    submitter: '赵**',
-    time: '2025-06-29 18:47'
-  }
-])
-
-// 按筛选过滤
-const filteredList = computed(() => {
-  if (activeFilter.value === 'all') return list.value
-  return list.value.filter((item) => item.status === activeFilter.value)
-})
+// 审核列表
+const list = ref([])
 
 onLoad(() => {
   try {
@@ -196,8 +171,76 @@ onLoad(() => {
   }
 })
 
+onShow(() => {
+  fetchList()
+  fetchStats()
+})
+
+// 拉取审核列表
+async function fetchList() {
+  loading.value = true
+  try {
+    const data = await adminApi.getSubmissions({
+      status: activeFilter.value,
+      page: 1,
+      page_size: 50
+    })
+    list.value = (data?.list || []).map(formatItem)
+  } catch (err) {
+    console.error('获取审核列表失败', err)
+    list.value = []
+    if (err.statusCode === 403) {
+      uni.showToast({ title: '需要管理员权限', icon: 'none' })
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
+// 拉取统计数据
+async function fetchStats() {
+  try {
+    const data = await adminApi.getStats()
+    stats.value = {
+      pending: data?.submission_count_pending || 0,
+      approved: 0,
+      rejected: 0,
+      today: data?.translation_count_today || 0
+    }
+    // 补充 approved/rejected 计数
+    try {
+      const [approved, rejected] = await Promise.all([
+        adminApi.getSubmissions({ status: 'approved', page: 1, page_size: 1 }),
+        adminApi.getSubmissions({ status: 'rejected', page: 1, page_size: 1 })
+      ])
+      stats.value.approved = approved?.total || 0
+      stats.value.rejected = rejected?.total || 0
+    } catch (e) {
+      // 忽略
+    }
+  } catch (err) {
+    console.warn('获取统计失败', err)
+  }
+}
+
+// 格式化后端数据为前端展示格式
+function formatItem(s) {
+  return {
+    id: s.submission_id,
+    status: s.status,
+    word: s.word || '',
+    category: s.category_name || '未分类',
+    definition: s.definition || '',
+    example: s.example || '',
+    submitter: s.submitter?.nickname || '匿名',
+    time: formatTime(s.submitted_at),
+    reviewComment: s.review_comment || ''
+  }
+}
+
 function switchFilter(value) {
   activeFilter.value = value
+  fetchList()
 }
 
 function statusText(s) {
@@ -205,21 +248,114 @@ function statusText(s) {
   return map[s] || s
 }
 
-// 占位逻辑：按钮点击弹Toast
-function handleApprove(item) {
-  uni.showToast({ title: '功能开发中', icon: 'none' })
+// 通过审核
+async function handleApprove(item) {
+  uni.showModal({
+    title: '确认审核',
+    content: `通过「${item.word}」的提交？`,
+    success: async (res) => {
+      if (res.confirm) {
+        try {
+          await adminApi.reviewSubmission(item.id, { action: 'approve' })
+          uni.showToast({ title: '已通过', icon: 'success' })
+          fetchList()
+          fetchStats()
+        } catch (err) {
+          uni.showToast({ title: '操作失败', icon: 'none' })
+          console.error(err)
+        }
+      }
+    }
+  })
 }
 
-function handleEdit(item) {
-  uni.showToast({ title: '功能开发中', icon: 'none' })
-}
-
+// 拒绝审核（弹出输入框填写原因）
 function handleReject(item) {
-  uni.showToast({ title: '功能开发中', icon: 'none' })
+  uni.showModal({
+    title: '拒绝提交',
+    editable: true,
+    placeholderText: '请输入拒绝原因',
+    success: async (res) => {
+      if (res.confirm) {
+        const comment = res.content || ''
+        try {
+          await adminApi.reviewSubmission(item.id, {
+            action: 'reject',
+            comment: comment
+          })
+          uni.showToast({ title: '已拒绝', icon: 'success' })
+          fetchList()
+          fetchStats()
+        } catch (err) {
+          uni.showToast({ title: '操作失败', icon: 'none' })
+          console.error(err)
+        }
+      }
+    }
+  })
 }
 
-function handleFilter() {
-  uni.showToast({ title: '筛选功能开发中', icon: 'none' })
+// 修改并审核通过（D13）：编辑释义后以 approve 方式提交，后端用新释义创建词条
+function handleEdit(item) {
+  uni.showModal({
+    title: '修改并通过',
+    editable: true,
+    placeholderText: '请输入修改后的释义',
+    content: item.definition || '',
+    success: async (res) => {
+      if (res.confirm) {
+        const meaning = (res.content || '').trim()
+        if (!meaning) {
+          uni.showToast({ title: '释义不能为空', icon: 'none' })
+          return
+        }
+        try {
+          await adminApi.reviewSubmission(item.id, {
+            action: 'approve',
+            meaning
+          })
+          uni.showToast({ title: '已修改并通过', icon: 'success' })
+          fetchList()
+          fetchStats()
+        } catch (err) {
+          uni.showToast({ title: '操作失败', icon: 'none' })
+          console.error(err)
+        }
+      }
+    }
+  })
+}
+
+// 顶部栏菜单：跳转数据统计 / 词条管理
+function handleMenu() {
+  uni.showActionSheet({
+    itemList: ['数据统计', '词条管理'],
+    success: (res) => {
+      if (res.tapIndex === 0) {
+        uni.navigateTo({ url: '/pages/admin/stats' })
+      } else if (res.tapIndex === 1) {
+        uni.navigateTo({ url: '/pages/admin/words' })
+      }
+    }
+  })
+}
+
+// 格式化时间
+function formatTime(ts) {
+  if (!ts) return ''
+  const d = new Date(ts)
+  if (isNaN(d.getTime())) return ''
+  const now = new Date()
+  const diff = now - d
+  if (diff < 60000) return '刚刚'
+  if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前'
+  if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前'
+  if (diff < 86400000 * 7) return Math.floor(diff / 86400000) + '天前'
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  return `${m}-${day} ${hh}:${mm}`
 }
 
 function handleBack() {
@@ -335,6 +471,16 @@ function handleBack() {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.review-empty {
+  padding: 60px 0;
+  text-align: center;
+
+  &__text {
+    font-size: 14px;
+    color: $text-tertiary;
+  }
 }
 
 .review-card {

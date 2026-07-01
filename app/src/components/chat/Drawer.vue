@@ -29,29 +29,8 @@
       <text class="drawer__new-chat-text">新对话</text>
     </view>
 
-    <!-- 滚动内容区 -->
+    <!-- 滚动内容区：只保留最近对话 -->
     <scroll-view scroll-y class="drawer__content">
-      <!-- 知识库组 -->
-      <view class="drawer__group-title">知识库</view>
-      <view class="drawer__menu">
-        <view class="drawer__menu-item" v-for="item in knowledgeMenu" :key="item.key" @click="handleNavigate(item.url)">
-          <component :is="item.icon" :size="20" color="#6B7280" />
-          <text class="drawer__menu-text">{{ item.label }}</text>
-          <ChevronRight :size="16" color="#D1D5DB" />
-        </view>
-      </view>
-
-      <!-- 我的内容组 -->
-      <view class="drawer__group-title">我的内容</view>
-      <view class="drawer__menu">
-        <view class="drawer__menu-item" v-for="item in myMenu" :key="item.key" @click="handleNavigate(item.url)">
-          <component :is="item.icon" :size="20" color="#6B7280" />
-          <text class="drawer__menu-text">{{ item.label }}</text>
-          <ChevronRight :size="16" color="#D1D5DB" />
-        </view>
-      </view>
-
-      <!-- 最近对话组 -->
       <view class="drawer__group-title">最近对话</view>
       <view class="drawer__menu">
         <view
@@ -90,8 +69,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import {
-  X, Search, Plus, BookOpen, ShieldCheck, Trophy,
-  Star, Send, ChevronRight, Settings, History
+  X, Search, Plus, Settings
 } from 'lucide-vue-next'
 import { useTranslateStore } from '@/store/modules/translate'
 import { useUserStore } from '@/store/modules/user'
@@ -110,23 +88,9 @@ const userStore = useUserStore()
 
 const searchText = ref('')
 
-// 知识库菜单
-const knowledgeMenu = [
-  { key: 'dict', label: '词库', url: '/pages/dict/index', icon: BookOpen },
-  { key: 'review', label: '审核', url: '/pages/review/index', icon: ShieldCheck },
-  { key: 'ranking', label: '热词排行', url: '/pages/hot/ranking', icon: Trophy }
-]
-
-// 我的内容菜单
-const myMenu = [
-  { key: 'history', label: '浏览历史', url: '/pages/mine/history', icon: History },
-  { key: 'favorites', label: '收藏', url: '/pages/mine/favorites', icon: Star },
-  { key: 'submissions', label: '我的提交', url: '/pages/mine/submissions', icon: Send }
-]
-
-// 最近对话（取前5条）
+// 最近对话（取前10条）
 const recentHistory = computed(() => {
-  return (translateStore.history || []).slice(0, 5)
+  return (translateStore.history || []).slice(0, 10)
 })
 
 // 用户信息
