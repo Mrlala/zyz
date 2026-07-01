@@ -1,116 +1,108 @@
 <template>
-  <view class="page submissions-page">
-    <!-- 顶部自定义导航栏 -->
-    <view class="nav-bar" :style="{ paddingTop: statusBarHeight + 'px' }">
-      <view class="nav-bar__inner">
-        <view class="nav-bar__back" @click="handleBack">‹</view>
-        <text class="nav-bar__title">我的提交</text>
-        <view class="nav-bar__add" @click="openSubmit">＋</view>
+  <view class="submissions-page">
+    <!-- 顶部栏 -->
+    <view class="top-bar" :style="{ paddingTop: statusBarHeight + 'px' }">
+      <view class="top-bar__inner">
+        <view class="top-bar__btn" @click="handleBack">
+          <ArrowLeft :size="20" color="#6B7280" />
+        </view>
+        <text class="top-bar__title">我的提交</text>
+        <view class="top-bar__add" @click="openSubmit">
+          <Plus :size="16" color="#FFFFFF" />
+        </view>
       </view>
     </view>
-    <view class="nav-placeholder" :style="{ height: (statusBarHeight + 44) + 'px' }"></view>
+    <view class="top-bar-placeholder" :style="{ height: (statusBarHeight + 54) + 'px' }"></view>
 
-    <view class="submissions-page__body">
-      <!-- 状态筛选 -->
-      <view class="submissions-page__tabs">
+    <!-- 加载中 -->
+    <view v-if="loading && !list.length" class="state-tip">
+      <text>加载中...</text>
+    </view>
+
+    <template v-else>
+      <!-- 提交列表 -->
+      <view v-if="list.length" class="submit-list">
         <view
-          v-for="tab in statusTabs"
-          :key="tab.value"
-          class="submissions-page__tab"
-          :class="{ 'submissions-page__tab--active': status === tab.value }"
-          @click="switchStatus(tab.value)"
-        >{{ tab.label }}</view>
-      </view>
+          v-for="item in list"
+          :key="item.submission_id || item.id"
+          class="submit-card"
+        >
+          <view class="submit-card__header">
+            <text class="submit-card__word">{{ item.word }}</text>
+            <text class="submit-card__badge" :class="`submit-card__badge--${item.status}`">{{ statusText(item.status) }}</text>
+          </view>
+          <text class="submit-card__definition">{{ item.definition }}</text>
+          <text v-if="item.example" class="submit-card__example">示例：{{ item.example }}</text>
+          <text class="submit-card__time">提交于 {{ formatTime(item.submitted_at) }}</text>
 
-      <!-- 列表 -->
-      <view class="submissions-page__list">
-        <view v-if="loading" class="submissions-page__loading">
-          <view class="submissions-page__loading-icon">⏳</view>
-          <text class="submissions-page__loading-text">加载中...</text>
+          <!-- 驳回原因（已拒绝） -->
+          <view v-if="item.reject_reason" class="submit-card__reason">
+            <text class="submit-card__reason-text">驳回原因：{{ item.reject_reason }}</text>
+          </view>
         </view>
 
-        <template v-else>
-          <view
-            v-for="item in list"
-            :key="item.submission_id || item.id"
-            class="submissions-page__item card"
-          >
-            <view class="submissions-page__item-header">
-              <text class="submissions-page__item-word">{{ item.word }}</text>
-              <text
-                class="submissions-page__item-status"
-                :class="`submissions-page__item-status--${item.status}`"
-              >{{ statusText(item.status) }}</text>
-            </view>
-            <view class="submissions-page__item-definition">{{ item.definition }}</view>
-            <view v-if="item.example" class="submissions-page__item-example">
-              示例：{{ item.example }}
-            </view>
-            <view class="submissions-page__item-time">
-              提交于 {{ formatTime(item.submitted_at) }}
-            </view>
-            <view v-if="item.reject_reason" class="submissions-page__item-reason">
-              驳回原因：{{ item.reject_reason }}
-            </view>
-          </view>
-
-          <EmptyState
-            v-if="!list.length"
-            icon="📨"
-            text="还没有提交记录"
-            btn-text="提交新词条"
-            @btnClick="openSubmit"
-          />
-
-          <LoadMore
-            v-if="list.length > 0"
-            :status="loadMoreStatus"
-            @loadMore="loadMore"
-          />
-        </template>
+        <!-- 加载更多 -->
+        <view v-if="list.length < total" class="load-more" @click="loadMore">
+          <text>{{ loading ? '加载中...' : '加载更多' }}</text>
+        </view>
+        <view v-else class="load-more load-more--end">
+          <text>没有更多了</text>
+        </view>
       </view>
-    </view>
+
+      <!-- 空状态 -->
+      <view v-else class="empty-state">
+        <view class="empty-state__icon">
+          <Send :size="32" color="#9CA3AF" />
+        </view>
+        <text class="empty-state__text">暂无提交记录</text>
+        <text class="empty-state__sub">提交新词条，丰富词库</text>
+        <view class="empty-state__btn" @click="openSubmit">
+          <text class="empty-state__btn-text">提交新词条</text>
+        </view>
+      </view>
+    </template>
 
     <!-- 提交新词条弹层 -->
-    <view v-if="submitVisible" class="submit" @click="closeSubmit">
-      <view class="submit__mask"></view>
-      <view class="submit__panel" @click.stop>
-        <view class="submit__title">提交新词条</view>
-        <view class="submit__field">
-          <text class="submit__label">词条 <text class="submit__required">*</text></text>
+    <view v-if="submitVisible" class="submit-modal" @click="closeSubmit">
+      <view class="submit-modal__mask"></view>
+      <view class="submit-modal__panel" @click.stop>
+        <view class="submit-modal__title">提交新词条</view>
+        <view class="submit-modal__field">
+          <text class="submit-modal__label">词条 <text class="submit-modal__required">*</text></text>
           <input
-            class="submit__input"
+            class="submit-modal__input"
             v-model="form.word"
             placeholder="如：yyds"
-            placeholder-class="submit__placeholder"
+            placeholder-class="submit-modal__placeholder"
             :maxlength="20"
           />
         </view>
-        <view class="submit__field">
-          <text class="submit__label">释义 <text class="submit__required">*</text></text>
+        <view class="submit-modal__field">
+          <text class="submit-modal__label">释义 <text class="submit-modal__required">*</text></text>
           <textarea
-            class="submit__textarea"
+            class="submit-modal__textarea"
             v-model="form.definition"
             placeholder="用一句话解释这个词的意思"
-            placeholder-class="submit__placeholder"
+            placeholder-class="submit-modal__placeholder"
             :maxlength="200"
           />
         </view>
-        <view class="submit__field">
-          <text class="submit__label">示例</text>
+        <view class="submit-modal__field">
+          <text class="submit-modal__label">示例</text>
           <textarea
-            class="submit__textarea submit__textarea--sm"
+            class="submit-modal__textarea submit-modal__textarea--sm"
             v-model="form.example"
             placeholder="造个句子（可选）"
-            placeholder-class="submit__placeholder"
+            placeholder-class="submit-modal__placeholder"
             :maxlength="100"
           />
         </view>
-        <view class="submit__btns">
-          <view class="submit__btn submit__btn--cancel" @click="closeSubmit">取消</view>
+        <view class="submit-modal__btns">
+          <view class="submit-modal__btn submit-modal__btn--cancel" @click="closeSubmit">取消</view>
           <view
-            class="submit__btn submit__btn--submit"
-            :class="{ 'btn-disabled': submitting }"
+            class="submit-modal__btn submit-modal__btn--submit"
+            :class="{ 'submit-modal__btn--disabled': submitting }"
             @click="handleSubmit"
           >{{ submitting ? '提交中...' : '提交' }}</view>
         </view>
@@ -120,14 +112,12 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive } from 'vue'
 import { onLoad, onReachBottom, onPullDownRefresh } from '@dcloudio/uni-app'
-import EmptyState from '@/components/common/EmptyState.vue'
-import LoadMore from '@/components/common/LoadMore.vue'
+import { ArrowLeft, Plus, Send } from 'lucide-vue-next'
 import * as submissionApi from '@/api/submission'
 
 const statusBarHeight = ref(0)
-const status = ref('')
 const list = ref([])
 const page = ref(1)
 const pageSize = 20
@@ -141,20 +131,6 @@ const form = reactive({
   word: '',
   definition: '',
   example: ''
-})
-
-// 状态筛选标签
-const statusTabs = [
-  { label: '全部', value: '' },
-  { label: '待审核', value: 'pending' },
-  { label: '已通过', value: 'approved' },
-  { label: '已驳回', value: 'rejected' }
-]
-
-const loadMoreStatus = computed(() => {
-  if (loading.value) return 'loading'
-  if (list.value.length >= total.value && list.value.length > 0) return 'noMore'
-  return 'more'
 })
 
 onLoad(() => {
@@ -187,7 +163,6 @@ async function fetchList(reset = false) {
   }
   try {
     const params = { page: page.value, page_size: pageSize }
-    if (status.value) params.status = status.value
     const data = await submissionApi.getMySubmissions(params)
     const arr = (data && data.list) || []
     total.value = (data && data.total) || 0
@@ -205,16 +180,9 @@ function loadMore() {
   fetchList(false)
 }
 
-// 切换状态筛选
-function switchStatus(value) {
-  if (status.value === value) return
-  status.value = value
-  fetchList(true)
-}
-
-// 状态文案
+// 状态文案（文案对齐：已驳回→已拒绝）
 function statusText(s) {
-  const map = { pending: '待审核', approved: '已通过', rejected: '已驳回' }
+  const map = { pending: '审核中', approved: '已通过', rejected: '已拒绝' }
   return map[s] || s || ''
 }
 
@@ -267,6 +235,13 @@ function formatTime(ts) {
   if (!ts) return ''
   const d = new Date(typeof ts === 'number' ? ts : Date.parse(ts))
   if (isNaN(d.getTime())) return ''
+  const now = Date.now()
+  const diff = now - d.getTime()
+  if (diff < 86400000) return '今天'
+  if (diff < 86400000 * 2) return '昨天'
+  if (diff < 86400000 * 7) return Math.floor(diff / 86400000) + '天前'
+  if (diff < 86400000 * 14) return '1周前'
+  if (diff < 86400000 * 30) return Math.floor(diff / (86400000 * 7)) + '周前'
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${m}-${day}`
@@ -276,177 +251,214 @@ function formatTime(ts) {
 <style lang="scss" scoped>
 .submissions-page {
   min-height: 100vh;
-  background-color: $uni-bg-color;
+  background-color: $bg-page;
+}
 
-  .nav-bar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 100;
-    background-color: #FFFFFF;
-    box-shadow: $uni-box-shadow;
+/* ============ 顶部栏 ============ */
+.top-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  background-color: $bg-page;
 
-    &__inner {
-      height: 88rpx;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 $uni-spacing-row-base;
-    }
-
-    &__back {
-      width: 56rpx;
-      height: 56rpx;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 56rpx;
-      color: $uni-text-color;
-      line-height: 1;
-    }
-
-    &__title {
-      font-size: $uni-font-size-lg;
-      font-weight: 600;
-      color: $uni-text-color;
-    }
-
-    &__add {
-      width: 56rpx;
-      height: 56rpx;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: $uni-font-size-title;
-      color: $uni-color-primary;
-    }
-  }
-
-  &__body {
-    padding: $uni-spacing-col-base $uni-spacing-row-base;
-    padding-bottom: 60rpx;
-  }
-
-  // 状态筛选
-  &__tabs {
+  &__inner {
+    height: 54px;
     display: flex;
-    background-color: #FFFFFF;
-    border-radius: $uni-border-radius;
-    padding: 6rpx;
-    margin-bottom: $uni-spacing-col-base;
-  }
-
-  &__tab {
-    flex: 1;
-    text-align: center;
-    padding: 14rpx 0;
-    font-size: $uni-font-size-sm;
-    color: $uni-text-color-grey;
-    border-radius: $uni-border-radius;
-
-    &--active {
-      background-color: $uni-color-primary;
-      color: #FFFFFF;
-      font-weight: 600;
-    }
-  }
-
-  &__list {
-    padding-top: $uni-spacing-row-sm;
-  }
-
-  &__loading {
-    display: flex;
-    flex-direction: column;
     align-items: center;
-    padding: $uni-spacing-col-xl 0;
-  }
-
-  &__loading-icon {
-    font-size: 96rpx;
-    margin-bottom: $uni-spacing-col-base;
-  }
-
-  &__loading-text {
-    font-size: $uni-font-size-base;
-    color: $uni-text-color-grey;
-  }
-
-  // 提交项
-  &__item {
-    margin-bottom: $uni-spacing-col-sm;
-  }
-
-  &__item-header {
-    display: flex;
     justify-content: space-between;
+    padding: 0 16px;
+  }
+
+  &__btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
     align-items: center;
-    margin-bottom: $uni-spacing-row-sm;
+    justify-content: center;
   }
 
-  &__item-word {
-    font-size: $uni-font-size-lg;
+  &__title {
+    font-size: 16px;
     font-weight: 600;
-    color: $uni-text-color;
+    color: $text-primary;
   }
 
-  &__item-status {
-    font-size: $uni-font-size-xs;
-    padding: 4rpx $uni-spacing-row-sm;
-    border-radius: 999rpx;
+  &__add {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: $color-primary;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+.top-bar-placeholder {
+  width: 100%;
+}
+
+/* ============ 状态提示 ============ */
+.state-tip {
+  padding: 64px 0;
+  text-align: center;
+  font-size: 14px;
+  color: $text-secondary;
+}
+
+/* ============ 提交列表 ============ */
+.submit-list {
+  padding: 8px 16px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.submit-card {
+  padding: 14px 16px;
+  border-radius: 10px;
+  background-color: $bg-card;
+  box-shadow: $shadow-sm;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  &__word {
+    flex: 1;
+    min-width: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: $text-primary;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__badge {
+    flex-shrink: 0;
+    padding: 2px 10px;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
 
     &--pending {
-      background-color: rgba(245, 158, 11, 0.12);
-      color: $uni-color-warning;
+      background-color: rgba(254, 44, 85, 0.1);
+      color: $color-primary;
     }
-
     &--approved {
-      background-color: rgba(16, 185, 129, 0.12);
-      color: $uni-color-success;
+      background-color: rgba(16, 185, 129, 0.1);
+      color: $color-success;
     }
-
     &--rejected {
-      background-color: rgba(239, 68, 68, 0.12);
-      color: $uni-color-error;
+      background-color: rgba(239, 68, 68, 0.1);
+      color: $color-danger;
     }
   }
 
-  &__item-definition {
-    font-size: $uni-font-size-base;
-    color: $uni-text-color;
-    line-height: 1.6;
-    margin-bottom: $uni-spacing-row-sm;
+  &__definition {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    margin-top: 8px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: $text-secondary;
   }
 
-  &__item-example {
-    font-size: $uni-font-size-sm;
-    color: $uni-text-color-grey;
-    line-height: 1.6;
-    padding: $uni-spacing-row-sm $uni-spacing-row-base;
-    background-color: $uni-bg-color;
-    border-radius: $uni-border-radius;
-    margin-bottom: $uni-spacing-row-sm;
+  &__example {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    color: $text-tertiary;
+    line-height: 1.5;
   }
 
-  &__item-time {
-    font-size: $uni-font-size-xs;
-    color: $uni-text-color-placeholder;
+  &__time {
+    display: block;
+    margin-top: 8px;
+    font-size: 11px;
+    color: $text-tertiary;
   }
 
-  &__item-reason {
-    margin-top: $uni-spacing-row-sm;
-    padding: $uni-spacing-row-sm $uni-spacing-row-base;
+  &__reason {
+    margin-top: 8px;
+    padding: 8px 12px;
+    border-radius: 8px;
     background-color: rgba(239, 68, 68, 0.06);
-    border-radius: $uni-border-radius;
-    font-size: $uni-font-size-sm;
-    color: $uni-color-error;
+  }
+
+  &__reason-text {
+    font-size: 12px;
+    color: $color-danger;
     line-height: 1.6;
   }
 }
 
-// 提交弹层
-.submit {
+/* ============ 加载更多 ============ */
+.load-more {
+  text-align: center;
+  padding: 16px 0;
+  font-size: 12px;
+  color: $text-tertiary;
+
+  &--end {
+    color: $text-tertiary;
+  }
+}
+
+/* ============ 空状态 ============ */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80px 0 40px;
+
+  &__icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background-color: $bg-sunken;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+  }
+
+  &__text {
+    font-size: 14px;
+    color: $text-secondary;
+    margin-bottom: 4px;
+  }
+
+  &__sub {
+    font-size: 12px;
+    color: $text-tertiary;
+  }
+
+  &__btn {
+    margin-top: 16px;
+    padding: 8px 20px;
+    border-radius: 9999px;
+    background-color: $color-primary;
+  }
+
+  &__btn-text {
+    font-size: 13px;
+    font-weight: 500;
+    color: #FFFFFF;
+  }
+}
+
+/* ============ 提交弹层 ============ */
+.submit-modal {
   position: fixed;
   top: 0;
   left: 0;
@@ -471,86 +483,90 @@ function formatTime(ts) {
     max-height: 80vh;
     overflow-y: auto;
     background-color: #FFFFFF;
-    border-radius: $uni-border-radius-lg $uni-border-radius-lg 0 0;
-    padding: $uni-spacing-col-lg $uni-spacing-row-lg;
-    padding-bottom: calc(#{$uni-spacing-col-lg} + env(safe-area-inset-bottom));
+    border-radius: 20px 20px 0 0;
+    padding: 20px 16px;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
   }
 
   &__title {
-    font-size: $uni-font-size-lg;
+    font-size: 16px;
     font-weight: 600;
-    color: $uni-text-color;
+    color: $text-primary;
     text-align: center;
-    margin-bottom: $uni-spacing-col-base;
+    margin-bottom: 16px;
   }
 
   &__field {
-    margin-bottom: $uni-spacing-col-base;
+    margin-bottom: 16px;
   }
 
   &__label {
     display: block;
-    font-size: $uni-font-size-sm;
-    color: $uni-text-color-grey;
-    margin-bottom: $uni-spacing-row-sm;
+    font-size: 13px;
+    color: $text-secondary;
+    margin-bottom: 8px;
   }
 
   &__required {
-    color: $uni-color-error;
+    color: $color-danger;
   }
 
   &__input {
     width: 100%;
-    height: 80rpx;
-    padding: 0 $uni-spacing-row-base;
-    background-color: $uni-bg-color;
-    border-radius: $uni-border-radius;
-    font-size: $uni-font-size-base;
-    color: $uni-text-color;
+    height: 40px;
+    padding: 0 16px;
+    background-color: $bg-sunken;
+    border-radius: 10px;
+    font-size: 14px;
+    color: $text-primary;
     box-sizing: border-box;
   }
 
   &__textarea {
     width: 100%;
-    min-height: 160rpx;
-    padding: $uni-spacing-row-base;
-    background-color: $uni-bg-color;
-    border-radius: $uni-border-radius;
-    font-size: $uni-font-size-base;
-    color: $uni-text-color;
+    min-height: 80px;
+    padding: 12px 16px;
+    background-color: $bg-sunken;
+    border-radius: 10px;
+    font-size: 14px;
+    color: $text-primary;
     box-sizing: border-box;
 
     &--sm {
-      min-height: 100rpx;
+      min-height: 60px;
     }
   }
 
   &__placeholder {
-    color: $uni-text-color-placeholder;
+    color: $text-tertiary;
   }
 
   &__btns {
     display: flex;
-    gap: $uni-spacing-row-base;
+    gap: 12px;
   }
 
   &__btn {
     flex: 1;
-    height: 80rpx;
-    line-height: 80rpx;
+    height: 44px;
+    line-height: 44px;
     text-align: center;
-    border-radius: $uni-border-radius;
-    font-size: $uni-font-size-base;
+    border-radius: 10px;
+    font-size: 14px;
 
     &--cancel {
-      background-color: $uni-bg-color;
-      color: $uni-text-color-grey;
+      background-color: $bg-sunken;
+      color: $text-secondary;
     }
 
     &--submit {
-      background-color: $uni-color-primary;
+      background-color: $color-primary;
       color: #FFFFFF;
       font-weight: 600;
+    }
+
+    &--disabled {
+      opacity: 0.6;
     }
   }
 }
