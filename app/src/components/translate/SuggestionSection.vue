@@ -3,7 +3,7 @@
     <!-- 行动建议 -->
     <view v-if="suggestion" class="suggestion-section__block">
       <view class="suggestion-section__header">
-        <text class="suggestion-section__icon">🎯</text>
+        <Target :size="16" color="#FE2C55" />
         <text class="suggestion-section__title">行动建议</text>
       </view>
       <view class="suggestion-section__content">{{ suggestion }}</view>
@@ -12,7 +12,7 @@
     <!-- 建议回复（可复制） -->
     <view v-if="suggestedReply" class="suggestion-section__block suggestion-section__reply">
       <view class="suggestion-section__header">
-        <text class="suggestion-section__icon">💬</text>
+        <MessageSquare :size="16" color="#FE2C55" />
         <text class="suggestion-section__title">建议回复</text>
         <view class="suggestion-section__copy" @click="handleCopy">
           <text class="suggestion-section__copy-text">{{ copied ? '已复制' : '复制' }}</text>
@@ -35,6 +35,7 @@
 
 <script setup>
 import { ref } from 'vue'
+import { Target, MessageSquare } from 'lucide-vue-next'
 
 const props = defineProps({
   // 行动建议
@@ -74,39 +75,35 @@ function handleCopy() {
 <style lang="scss" scoped>
 .suggestion-section {
   &__block {
-    background-color: #FFFFFF;
-    border-radius: $uni-border-radius;
-    box-shadow: $uni-box-shadow;
-    padding: $uni-spacing-col-base $uni-spacing-row-base;
-    margin-bottom: $uni-spacing-col-sm;
+    background-color: $bg-card;
+    border-radius: 12px;
+    box-shadow: $shadow-xs;
+    padding: 16px;
+    margin-bottom: 8px;
   }
 
   &__reply {
-    background-color: rgba(79, 70, 229, 0.04);
+    background-color: rgba(254, 44, 85, 0.04);
   }
 
   &__header {
     display: flex;
     align-items: center;
-    margin-bottom: $uni-spacing-row-sm;
-  }
-
-  &__icon {
-    font-size: $uni-font-size-lg;
-    margin-right: $uni-spacing-row-sm;
+    gap: 8px;
+    margin-bottom: 8px;
   }
 
   &__title {
-    font-size: $uni-font-size-base;
+    font-size: 14px;
     font-weight: 600;
-    color: $uni-text-color;
+    color: $text-primary;
     flex: 1;
   }
 
   &__copy {
-    padding: 4rpx $uni-spacing-row-sm;
-    background-color: $uni-color-primary;
-    border-radius: 999rpx;
+    padding: 4px 12px;
+    background-color: $color-primary;
+    border-radius: 9999px;
 
     &:active {
       opacity: 0.8;
@@ -114,25 +111,25 @@ function handleCopy() {
   }
 
   &__copy-text {
-    font-size: $uni-font-size-sm;
+    font-size: 13px;
     color: #FFFFFF;
   }
 
   &__content {
-    font-size: $uni-font-size-base;
-    color: $uni-text-color;
+    font-size: 14px;
+    color: $text-primary;
     line-height: 1.7;
   }
 
   &__reply-content {
-    color: $uni-color-primary;
+    color: $color-primary;
   }
 
   &__empty {
-    font-size: $uni-font-size-sm;
-    color: $uni-text-color-grey;
+    font-size: 13px;
+    color: $text-secondary;
     text-align: center;
-    padding: $uni-spacing-col-base;
+    padding: 16px;
   }
 }
 </style>

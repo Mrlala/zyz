@@ -1,7 +1,7 @@
 <template>
   <view v-if="text" class="subtext-section">
     <view class="subtext-section__header">
-      <text class="subtext-section__icon">💭</text>
+      <MessageCircle :size="16" color="#FE2C55" />
       <text class="subtext-section__title">潜台词分析</text>
     </view>
     <view class="subtext-section__content">{{ text }}</view>
@@ -9,6 +9,8 @@
 </template>
 
 <script setup>
+import { MessageCircle } from 'lucide-vue-next'
+
 defineProps({
   // 潜台词内容
   text: {
@@ -20,32 +22,28 @@ defineProps({
 
 <style lang="scss" scoped>
 .subtext-section {
-  background-color: #FFFFFF;
-  border-radius: $uni-border-radius;
-  box-shadow: $uni-box-shadow;
-  padding: $uni-spacing-col-base $uni-spacing-row-base;
-  margin-bottom: $uni-spacing-col-sm;
+  background-color: $bg-card;
+  border-radius: 12px;
+  box-shadow: $shadow-xs;
+  padding: 16px;
+  margin-bottom: 8px;
 
   &__header {
     display: flex;
     align-items: center;
-    margin-bottom: $uni-spacing-row-sm;
-  }
-
-  &__icon {
-    font-size: $uni-font-size-lg;
-    margin-right: $uni-spacing-row-sm;
+    gap: 8px;
+    margin-bottom: 8px;
   }
 
   &__title {
-    font-size: $uni-font-size-base;
+    font-size: 14px;
     font-weight: 600;
-    color: $uni-text-color;
+    color: $text-primary;
   }
 
   &__content {
-    font-size: $uni-font-size-base;
-    color: $uni-text-color;
+    font-size: 14px;
+    color: $text-primary;
     line-height: 1.7;
   }
 }

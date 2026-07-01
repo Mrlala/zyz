@@ -35,7 +35,7 @@
     <!-- b) 关键词解释区（SRS-099 来源标签 + SRS-100 多语境） -->
     <view v-if="keywords && keywords.length" class="translate-result__keywords">
       <view class="translate-result__block-title">
-        <text class="translate-result__block-icon">🔑</text>
+        <Key :size="16" color="#FE2C55" />
         <text>关键词解释</text>
       </view>
       <view
@@ -90,7 +90,7 @@
     <!-- c) 语境判断区 -->
     <view v-if="context" class="translate-result__block">
       <view class="translate-result__block-title">
-        <text class="translate-result__block-icon">📌</text>
+        <Pin :size="16" color="#FE2C55" />
         <text>语境判断</text>
       </view>
       <view class="translate-result__block-content">{{ context }}</view>
@@ -118,7 +118,7 @@
     <!-- h) 相关推荐区 -->
     <view v-if="related && related.length" class="translate-result__block">
       <view class="translate-result__block-title">
-        <text class="translate-result__block-icon">🔗</text>
+        <Link2 :size="16" color="#FE2C55" />
         <text>相关推荐</text>
       </view>
       <view class="translate-result__related">
@@ -156,6 +156,7 @@
 
 <script setup>
 import { computed, ref } from 'vue'
+import { Key, Pin, Link2 } from 'lucide-vue-next'
 import WordTag from '../word/WordTag.vue'
 import SourceTag from '../common/SourceTag.vue'
 import RiskWarning from '../common/RiskWarning.vue'
@@ -301,85 +302,85 @@ function handleFeedback(type) {
 .translate-result {
   // 对比展示区
   &__compare {
-    background-color: #FFFFFF;
-    border-radius: $uni-border-radius;
-    box-shadow: $uni-box-shadow;
-    padding: $uni-spacing-col-base $uni-spacing-row-base;
-    margin-bottom: $uni-spacing-col-sm;
+    background-color: $bg-card;
+    border-radius: 12px;
+    box-shadow: $shadow-xs;
+    padding: 16px;
+    margin-bottom: 8px;
   }
 
   &__original {
-    margin-bottom: $uni-spacing-row-sm;
+    margin-bottom: 12px;
   }
 
   &__label {
     display: inline-block;
-    font-size: $uni-font-size-sm;
-    color: $uni-text-color-grey;
-    background-color: $uni-bg-color;
-    padding: 2rpx $uni-spacing-row-sm;
-    border-radius: 999rpx;
-    margin-bottom: $uni-spacing-row-sm;
+    font-size: 13px;
+    color: $text-secondary;
+    background-color: $bg-sunken;
+    padding: 2px 12px;
+    border-radius: 9999px;
+    margin-bottom: 12px;
 
     &--primary {
-      color: $uni-color-primary;
-      background-color: rgba(79, 70, 229, 0.1);
+      color: $color-primary;
+      background-color: rgba(254, 44, 85, 0.1);
     }
   }
 
   &__original-text {
-    font-size: $uni-font-size-base;
-    color: $uni-text-color;
+    font-size: 14px;
+    color: $text-primary;
     line-height: 1.7;
   }
 
   &__highlight {
-    color: $uni-color-primary;
+    color: $color-primary;
     font-weight: 600;
   }
 
   &__arrow {
     display: flex;
     justify-content: center;
-    margin: $uni-spacing-row-sm 0;
+    margin: 12px 0;
   }
 
   &__arrow-text {
-    font-size: $uni-font-size-sm;
-    color: $uni-text-color-grey;
+    font-size: 13px;
+    color: $text-secondary;
   }
 
   &__human {
-    background-color: rgba(79, 70, 229, 0.04);
-    border-radius: $uni-border-radius;
-    padding: $uni-spacing-row-base;
+    background-color: rgba(254, 44, 85, 0.04);
+    border-radius: 12px;
+    padding: 16px;
   }
 
   &__human-text {
-    font-size: $uni-font-size-lg;
-    color: $uni-text-color;
+    font-size: 16px;
+    color: $text-primary;
     line-height: 1.7;
     font-weight: 500;
   }
 
   &__tip {
-    margin-top: $uni-spacing-row-sm;
-    font-size: $uni-font-size-sm;
-    color: $uni-color-success;
+    margin-top: 12px;
+    font-size: 13px;
+    color: $color-success;
   }
 
   // 关键词解释区
   &__keywords {
-    background-color: #FFFFFF;
-    border-radius: $uni-border-radius;
-    box-shadow: $uni-box-shadow;
-    padding: $uni-spacing-col-base $uni-spacing-row-base;
-    margin-bottom: $uni-spacing-col-sm;
+    background-color: $bg-card;
+    border-radius: 12px;
+    box-shadow: $shadow-xs;
+    padding: 16px;
+    margin-bottom: 8px;
   }
 
   &__keyword {
-    padding: $uni-spacing-col-sm 0;
-    border-bottom: 2rpx solid $uni-border-color;
+    padding: 12px 0;
+    border-bottom: 1px solid $border-color-light;
 
     &:last-child {
       border-bottom: none;
@@ -390,59 +391,59 @@ function handleFeedback(type) {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: $uni-spacing-row-sm;
-    margin-bottom: $uni-spacing-row-sm;
+    gap: 12px;
+    margin-bottom: 12px;
   }
 
   &__keyword-word {
-    font-size: $uni-font-size-lg;
+    font-size: 16px;
     font-weight: 600;
-    color: $uni-color-primary;
+    color: $color-primary;
   }
 
   &__keyword-meaning {
-    font-size: $uni-font-size-base;
-    color: $uni-text-color;
+    font-size: 14px;
+    color: $text-primary;
     line-height: 1.6;
-    margin-bottom: $uni-spacing-row-sm;
+    margin-bottom: 12px;
   }
 
   &__contexts {
     display: flex;
     flex-direction: column;
-    gap: $uni-spacing-row-sm;
-    margin-bottom: $uni-spacing-row-sm;
+    gap: 12px;
+    margin-bottom: 12px;
   }
 
   &__context {
     display: flex;
     align-items: flex-start;
-    padding: $uni-spacing-row-sm $uni-spacing-row-base;
-    background-color: $uni-bg-color;
-    border-radius: $uni-border-radius;
-    border: 2rpx solid transparent;
+    padding: 12px 16px;
+    background-color: $bg-sunken;
+    border-radius: 12px;
+    border: 1px solid transparent;
 
     &--active {
-      background-color: rgba(79, 70, 229, 0.08);
-      border-color: rgba(79, 70, 229, 0.3);
+      background-color: rgba(254, 44, 85, 0.08);
+      border-color: rgba(254, 44, 85, 0.3);
     }
   }
 
   &__context-name {
-    font-size: $uni-font-size-sm;
-    color: $uni-text-color-grey;
+    font-size: 13px;
+    color: $text-secondary;
     flex-shrink: 0;
-    margin-right: $uni-spacing-row-sm;
+    margin-right: 12px;
   }
 
   &__context--active &__context-name {
-    color: $uni-color-primary;
+    color: $color-primary;
     font-weight: 600;
   }
 
   &__context-meaning {
-    font-size: $uni-font-size-sm;
-    color: $uni-text-color;
+    font-size: 13px;
+    color: $text-primary;
     flex: 1;
     line-height: 1.6;
   }
@@ -451,36 +452,32 @@ function handleFeedback(type) {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: $uni-spacing-row-sm;
-    margin-top: $uni-spacing-row-sm;
+    gap: 12px;
+    margin-top: 12px;
   }
 
   // 通用区块
   &__block {
-    background-color: #FFFFFF;
-    border-radius: $uni-border-radius;
-    box-shadow: $uni-box-shadow;
-    padding: $uni-spacing-col-base $uni-spacing-row-base;
-    margin-bottom: $uni-spacing-col-sm;
+    background-color: $bg-card;
+    border-radius: 12px;
+    box-shadow: $shadow-xs;
+    padding: 16px;
+    margin-bottom: 8px;
   }
 
   &__block-title {
     display: flex;
     align-items: center;
-    font-size: $uni-font-size-base;
+    gap: 8px;
+    font-size: 14px;
     font-weight: 600;
-    color: $uni-text-color;
-    margin-bottom: $uni-spacing-row-sm;
-  }
-
-  &__block-icon {
-    font-size: $uni-font-size-lg;
-    margin-right: $uni-spacing-row-sm;
+    color: $text-primary;
+    margin-bottom: 12px;
   }
 
   &__block-content {
-    font-size: $uni-font-size-base;
-    color: $uni-text-color;
+    font-size: 14px;
+    color: $text-primary;
     line-height: 1.7;
   }
 
@@ -488,15 +485,15 @@ function handleFeedback(type) {
   &__related {
     display: flex;
     flex-wrap: wrap;
-    gap: $uni-spacing-row-sm;
+    gap: 12px;
   }
 
   &__related-item {
-    padding: $uni-spacing-row-sm $uni-spacing-row-base;
-    background-color: rgba(79, 70, 229, 0.08);
-    color: $uni-color-primary;
-    border-radius: 999rpx;
-    font-size: $uni-font-size-sm;
+    padding: 12px 16px;
+    background-color: rgba(254, 44, 85, 0.08);
+    color: $color-primary;
+    border-radius: 9999px;
+    font-size: 13px;
 
     &:active {
       opacity: 0.7;
@@ -505,35 +502,35 @@ function handleFeedback(type) {
 
   // 反馈按钮区
   &__feedback {
-    background-color: #FFFFFF;
-    border-radius: $uni-border-radius;
-    box-shadow: $uni-box-shadow;
-    padding: $uni-spacing-col-base $uni-spacing-row-base;
-    margin-top: $uni-spacing-col-sm;
+    background-color: $bg-card;
+    border-radius: 12px;
+    box-shadow: $shadow-xs;
+    padding: 16px;
+    margin-top: 8px;
   }
 
   &__feedback-title {
-    font-size: $uni-font-size-sm;
-    color: $uni-text-color-grey;
-    margin-bottom: $uni-spacing-row-sm;
+    font-size: 13px;
+    color: $text-secondary;
+    margin-bottom: 12px;
   }
 
   &__feedback-btns {
     display: flex;
-    gap: $uni-spacing-row-sm;
+    gap: 12px;
   }
 
   &__feedback-btn {
     flex: 1;
     text-align: center;
-    padding: $uni-spacing-row-sm 0;
-    border-radius: $uni-border-radius;
-    font-size: $uni-font-size-sm;
-    background-color: $uni-bg-color;
-    color: $uni-text-color;
+    padding: 12px 0;
+    border-radius: 12px;
+    font-size: 13px;
+    background-color: $bg-sunken;
+    color: $text-primary;
 
     &--active {
-      background-color: $uni-color-primary;
+      background-color: $color-primary;
       color: #FFFFFF;
     }
 
