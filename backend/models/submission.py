@@ -81,6 +81,11 @@ class CorrectionReport(Base):
         default="pending",
         comment="状态：pending/approved/rejected",
     )
+    reviewer_id = Column(
+        Integer, ForeignKey("admin_accounts.id"), nullable=True, comment="审核人（管理员）"
+    )
+    reviewed_at = Column(DateTime, nullable=True, comment="审核时间")
+    review_comment = Column(Text, nullable=True, comment="审核评论/驳回原因")
     created_at = Column(
         DateTime,
         nullable=False,

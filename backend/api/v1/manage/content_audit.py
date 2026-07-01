@@ -217,10 +217,16 @@ async def review_correction(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="已审核")
 
     correction.status = "approved" if body.action == "approve" else "rejected"
+    correction.reviewer_id = admin.id
+    correction.reviewed_at = datetime.now(timezone.utc)
+    if body.comment:
+        correction.review_comment = body.comment
     db.commit()
 
     return BaseResponse(data={
         "id": correction.id,
         "status": correction.status,
-        "reviewed_at": datetime.now(timezone.utc).isoformat(),
+        "reviewer_id": correction.reviewer_id,
+        "reviewed_at": correction.reviewed_at.isoformat() if correction.reviewed_at else None,
+        "review_comment": correction.review_comment,
     })

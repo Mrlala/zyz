@@ -36,19 +36,57 @@ def _estimate_cost(prompt_tokens: int, completion_tokens: int) -> str:
 class AIClient:
     """DeepSeek 大模型调用客户端。
 
-    从 config 读取 DEEPSEEK_API_KEY 与 DEEPSEEK_API_URL，使用 httpx.AsyncClient 异步调用。
-    每次调用记录 AiCallLog（token 消耗/耗时/成本）。
+    优先从 system_configs 表读取最新 AI 配置（后台可在线修改），回退到 .env。
+    使用 httpx.AsyncClient 异步调用，每次调用记录 AiCallLog（token 消耗/耗时/成本）。
     """
 
     def __init__(self) -> None:
-        self.api_key: str = settings.DEEPSEEK_API_KEY
-        self.api_url: str = settings.DEEPSEEK_API_URL
-        self.model: str = settings.DEEPSEEK_MODEL
         # 调用上下文（供日志记录关联用，可空）
         self.call_user_id: int | None = None
         self.call_admin_id: int | None = None
         self.call_endpoint: str = "translate"
         self.call_mode: str | None = None
+        # 配置延迟加载，每次 chat 前刷新
+        self.api_key: str = ""
+        self.api_url: str = ""
+        self.model: str = ""
+        self.temperature: float = 0.3
+        self.max_tokens: int | None = None
+
+    def _load_config(self) -> None:
+        """从 system_configs 表读取最新 AI 配置（每次调用前执行）。
+
+        优先取数据库配置，回退到 .env 环境变量。
+        """
+        cfg_map: dict[str, str] = {}
+        try:
+            from core.database import SessionLocal
+            from models.admin import SystemConfig
+            from sqlalchemy import select
+
+            db = SessionLocal()
+            try:
+                configs = db.execute(
+                    select(SystemConfig).where(SystemConfig.category == "ai")
+                ).scalars().all()
+                cfg_map = {c.config_key: (c.config_value or "") for c in configs}
+            finally:
+                db.close()
+        except Exception as exc:
+            logger.warning("读取 system_configs AI 配置失败，回退到 .env: %s", exc)
+
+        self.api_key = cfg_map.get("deepseek_api_key") or settings.DEEPSEEK_API_KEY
+        self.api_url = cfg_map.get("deepseek_api_url") or settings.DEEPSEEK_API_URL
+        self.model = cfg_map.get("deepseek_model") or settings.DEEPSEEK_MODEL
+        try:
+            self.temperature = float(cfg_map.get("deepseek_temperature", "0.3") or "0.3")
+        except (TypeError, ValueError):
+            self.temperature = 0.3
+        max_tokens_str = cfg_map.get("deepseek_max_tokens", "")
+        try:
+            self.max_tokens = int(max_tokens_str) if max_tokens_str else None
+        except (TypeError, ValueError):
+            self.max_tokens = None
 
     def _record_call_log(
         self,
@@ -98,19 +136,24 @@ class AIClient:
         :return: 解析后的 JSON 字典
         :raises RuntimeError: 调用失败或 JSON 解析失败时抛出
         """
+        # 每次调用前从数据库刷新配置，确保后台修改即时生效
+        self._load_config()
+
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
-        payload = {
+        payload: dict[str, Any] = {
             "model": self.model,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            "temperature": 0.3,
+            "temperature": self.temperature,
             "stream": False,
         }
+        if self.max_tokens is not None:
+            payload["max_tokens"] = self.max_tokens
 
         start = time.time()
         last_error: Exception | None = None

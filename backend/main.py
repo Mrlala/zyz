@@ -3,16 +3,28 @@
 创建 app，配置 CORS 中间件，注册路由。
 包含健康检查接口与全部业务 API（挂载于 /api 前缀下）。
 """
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.v1 import api_router
+from core.database import init_db
 from core.middleware import OperationLogMiddleware
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """应用生命周期：启动时初始化数据库（建表 + 轻量迁移）。"""
+    init_db()
+    yield
+
 
 app = FastAPI(
     title="黑话翻译 API",
     description="黑话翻译系统后端服务",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # CORS 中间件：允许跨域访问（开发阶段全放开，生产环境应限制来源）

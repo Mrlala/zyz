@@ -106,10 +106,14 @@ async def admin_login(
             detail="账号已禁用，请联系系统管理员",
         )
 
-    # 生成管理端 JWT：payload 含 type=admin + role_code
+    # 生成管理端 JWT：payload 含 type=admin + role_code + username（供中间件记录操作日志）
     token = create_access_token(
         subject=admin.id,
-        extra_data={"type": "admin", "role_code": admin.role.code if admin.role else None},
+        extra_data={
+            "type": "admin",
+            "role_code": admin.role.code if admin.role else None,
+            "username": admin.username,
+        },
     )
 
     # 更新登录信息

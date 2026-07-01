@@ -72,8 +72,9 @@ def _resolve_admin(request: Request) -> tuple[int | None, str | None]:
         admin_id = int(payload.get("sub"))
     except (TypeError, ValueError):
         admin_id = None
-    # username 不在 JWT 里，留空（由日志查询时 join admin_accounts 补全，或登录时记录）
-    return admin_id, None
+    # username 在登录时写入 JWT payload，中间件直接取，无需查库
+    username = payload.get("username")
+    return admin_id, username
 
 
 def _client_ip(request: Request) -> str:

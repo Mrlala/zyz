@@ -124,6 +124,7 @@ async def create_word(
         status="published",
         source="manual",
         created_by=None,
+        created_by_admin_id=admin.id,
     )
     db.add(word)
     db.commit()

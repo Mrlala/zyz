@@ -59,7 +59,10 @@ class Word(BaseModel):
     view_count = Column(Integer, nullable=False, default=0, comment="浏览次数")
     vote_count = Column(Integer, nullable=False, default=0, comment="投票净分（赞 - 踩）")
     created_by = Column(
-        Integer, ForeignKey("users.id"), nullable=True, comment="创建者（manual/ai 时记录）"
+        Integer, ForeignKey("users.id"), nullable=True, comment="创建者（C 端用户，manual/ai 时记录）"
+    )
+    created_by_admin_id = Column(
+        Integer, ForeignKey("admin_accounts.id"), nullable=True, comment="创建者（管理员，后台新建时记录）"
     )
     deleted_at = Column(DateTime, nullable=True, comment="软删除时间，NULL 表示未删除")
 
