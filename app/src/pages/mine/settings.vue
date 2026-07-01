@@ -132,9 +132,12 @@
         </view>
       </view>
 
-      <!-- 退出登录 -->
+      <!-- 退出登录 / 登录 -->
       <view v-if="userStore.isLoggedIn" class="logout-btn" @click="handleLogout">
         <text class="logout-btn__text">退出登录</text>
+      </view>
+      <view v-else class="login-btn" @click="handleLogin">
+        <text class="login-btn__text">登录</text>
       </view>
     </view>
   </view>
@@ -275,12 +278,23 @@ function handleLogout() {
       if (res.confirm) {
         userStore.logout()
         uni.showToast({ title: '已退出', icon: 'success' })
-        setTimeout(() => {
-          uni.reLaunch({ url: '/pages/index/index' })
-        }, 800)
       }
     }
   })
+}
+
+// 登录（基于设备 ID 自动登录）
+async function handleLogin() {
+  uni.showLoading({ title: '登录中...' })
+  try {
+    await userStore.login()
+    uni.showToast({ title: '登录成功', icon: 'success' })
+  } catch (err) {
+    console.error('登录失败', err)
+    uni.showToast({ title: '登录失败', icon: 'none' })
+  } finally {
+    uni.hideLoading()
+  }
 }
 
 function handleBack() {
@@ -483,6 +497,24 @@ function goAchievements() {
 
   &:active {
     opacity: 0.6;
+  }
+}
+
+.login-btn {
+  margin-top: 24px;
+  padding: 14px 0;
+  text-align: center;
+  background-color: $color-primary;
+  border-radius: 12px;
+
+  &__text {
+    font-size: 14px;
+    font-weight: 500;
+    color: #FFFFFF;
+  }
+
+  &:active {
+    opacity: 0.8;
   }
 }
 </style>
