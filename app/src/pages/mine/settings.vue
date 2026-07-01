@@ -16,12 +16,12 @@
       <!-- 分组1 账号 -->
       <view class="group-card">
         <!-- 头像 -->
-        <view class="group-row" @click="showDeveloping">
+        <view class="group-row" @click="goEditProfile">
           <text class="group-row__label">头像</text>
           <view class="group-row__right">
             <view class="avatar-wrap">
-              <view class="avatar-inner">
-                <text class="avatar-text">{{ avatarText }}</text>
+              <view class="avatar-inner" :style="avatarInnerStyle">
+                <text class="avatar-text">{{ avatarDisplay }}</text>
               </view>
             </view>
             <ChevronRight :size="16" color="#C0C4CC" />
@@ -29,7 +29,7 @@
         </view>
         <view class="group-divider"></view>
         <!-- 昵称 -->
-        <view class="group-row" @click="showDeveloping">
+        <view class="group-row" @click="goEditProfile">
           <text class="group-row__label">昵称</text>
           <view class="group-row__right">
             <text class="group-row__value">{{ userName }}</text>
@@ -185,9 +185,36 @@ const phoneText = computed(() => {
   if (phone.length === 11) return phone.slice(0, 3) + '****' + phone.slice(7)
   return phone
 })
-const avatarText = computed(() => {
+// 预设头像 emoji 映射（与 profile-setup.vue 一致）
+const AVATAR_MAP = {
+  cat: { emoji: '🐱', bg: 'linear-gradient(135deg, #FFE0B2, #FFCC80)' },
+  dog: { emoji: '🐶', bg: 'linear-gradient(135deg, #FFCDD2, #EF9A9A)' },
+  panda: { emoji: '🐼', bg: 'linear-gradient(135deg, #ECEFF1, #CFD8DC)' },
+  fox: { emoji: '🦊', bg: 'linear-gradient(135deg, #FFE0B2, #FFB74D)' },
+  bear: { emoji: '🐻', bg: 'linear-gradient(135deg, #D7CCC8, #BCAAA4)' },
+  rabbit: { emoji: '🐰', bg: 'linear-gradient(135deg, #F8BBD0, #F48FB1)' },
+  lion: { emoji: '🦁', bg: 'linear-gradient(135deg, #FFF9C4, #FFF176)' },
+  frog: { emoji: '🐸', bg: 'linear-gradient(135deg, #C8E6C9, #A5D6A7)' }
+}
+const avatarDisplay = computed(() => {
+  const key = userStore.userInfo?.avatar
+  if (key && AVATAR_MAP[key]) return AVATAR_MAP[key].emoji
   const name = userName.value
   return name ? name.charAt(0) : '?'
+})
+const avatarStyle = computed(() => {
+  const key = userStore.userInfo?.avatar
+  if (key && AVATAR_MAP[key]) {
+    return { background: AVATAR_MAP[key].bg }
+  }
+  return {}
+})
+const avatarInnerStyle = computed(() => {
+  const key = userStore.userInfo?.avatar
+  if (key && AVATAR_MAP[key]) {
+    return { background: AVATAR_MAP[key].bg }
+  }
+  return { backgroundColor: '#F3F4F6' }
 })
 
 onLoad(() => {
@@ -299,6 +326,11 @@ function handleBack() {
 // 跳转成就页
 function goAchievements() {
   uni.navigateTo({ url: '/pages/mine/achievements' })
+}
+
+// 跳转资料编辑页（复用 profile-setup，编辑模式）
+function goEditProfile() {
+  uni.navigateTo({ url: '/pages/auth/profile-setup?mode=edit' })
 }
 </script>
 

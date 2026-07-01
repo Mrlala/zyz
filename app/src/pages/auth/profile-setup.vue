@@ -2,8 +2,8 @@
   <view class="setup-page" :style="{ paddingTop: statusBarHeight + 'px' }">
     <!-- 头部 -->
     <view class="setup-header">
-      <text class="setup-header__title">完善资料</text>
-      <text class="setup-header__subtitle">设置昵称和头像，让大家认识你</text>
+      <text class="setup-header__title">{{ isEditMode ? '编辑资料' : '完善资料' }}</text>
+      <text class="setup-header__subtitle">{{ isEditMode ? '修改你的昵称和头像' : '设置昵称和头像，让大家认识你' }}</text>
     </view>
 
     <!-- 头像选择 -->
@@ -53,7 +53,7 @@
       :class="{ 'setup-submit--disabled': loading || !nickname.trim() }"
       @click="handleSubmit"
     >
-      <text class="setup-submit__text">{{ loading ? '保存中...' : '完成并进入' }}</text>
+      <text class="setup-submit__text">{{ submitText }}</text>
     </view>
   </view>
 </template>
@@ -70,6 +70,7 @@ const statusBarHeight = ref(0)
 const nickname = ref('')
 const selectedAvatar = ref('cat')
 const loading = ref(false)
+const isEditMode = ref(false) // 编辑模式：从设置页进入，提交后 navigateBack
 
 // 预设头像（用 emoji + 背景色，无需图片资源）
 const presetAvatars = [
@@ -87,7 +88,17 @@ const currentAvatar = computed(
   () => presetAvatars.find(a => a.key === selectedAvatar.value) || presetAvatars[0]
 )
 
-onLoad(() => {
+// 按钮文案
+const submitText = computed(() => {
+  if (loading.value) return '保存中...'
+  return isEditMode.value ? '保存修改' : '完成并进入'
+})
+
+onLoad((options) => {
+  // 编辑模式：从设置页进入
+  if (options && options.mode === 'edit') {
+    isEditMode.value = true
+  }
   try {
     const sysInfo = uni.getSystemInfoSync()
     statusBarHeight.value = sysInfo.statusBarHeight || 0
@@ -99,10 +110,9 @@ onLoad(() => {
     uni.reLaunch({ url: '/pages/auth/login' })
     return
   }
-  // 已有昵称（非首次）→ 回首页
+  // 已有昵称 → 预填
   if (userStore.userInfo?.nickname) {
     nickname.value = userStore.userInfo.nickname
-    // 匹配已有头像
     const exist = presetAvatars.find(a => a.key === userStore.userInfo.avatar)
     if (exist) selectedAvatar.value = exist.key
   }
@@ -121,9 +131,15 @@ async function handleSubmit() {
       nickname: nickname.value.trim(),
       avatar: selectedAvatar.value
     })
-    uni.showToast({ title: '设置成功', icon: 'success' })
+    uni.showToast({ title: isEditMode.value ? '已保存' : '设置成功', icon: 'success' })
     setTimeout(() => {
-      uni.reLaunch({ url: '/pages/index/index' })
+      if (isEditMode.value) {
+        // 编辑模式：返回上一页
+        uni.navigateBack({ delta: 1 })
+      } else {
+        // 首次设置：进入首页
+        uni.reLaunch({ url: '/pages/index/index' })
+      }
     }, 500)
   } catch (err) {
     console.error('设置资料失败', err)

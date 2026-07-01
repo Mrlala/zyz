@@ -59,8 +59,8 @@
     <view class="drawer__footer">
       <view class="drawer__user" @click="handleNavigate('/pages/mine/settings')">
         <view class="drawer__avatar-wrap">
-          <view class="drawer__avatar">
-            <text class="drawer__avatar-text">{{ avatarText }}</text>
+          <view class="drawer__avatar" :style="avatarStyle">
+            <text class="drawer__avatar-text">{{ avatarDisplay }}</text>
           </view>
         </view>
         <view class="drawer__user-info">
@@ -78,7 +78,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import {
-  X, Search, Plus, Settings
+  X, Search, Plus, Settings, History
 } from 'lucide-vue-next'
 import { useTranslateStore } from '@/store/modules/translate'
 import { useUserStore } from '@/store/modules/user'
@@ -90,24 +90,45 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['close', 'navigate', 'selectHistory', 'newChat'])
+const emit = defineEmits(['close', 'navigate', 'selectSession', 'newChat'])
 
 const translateStore = useTranslateStore()
 const userStore = useUserStore()
 
 const searchText = ref('')
 
-// 最近对话（取前10条）
-const recentHistory = computed(() => {
-  return (translateStore.history || []).slice(0, 10)
-})
+// 最近对话（直接用 store 的 getter，取前 10 条）
+const recentSessions = computed(() => translateStore.recentSessions || [])
+
+// 预设头像 emoji 映射（与 profile-setup.vue 保持一致）
+const AVATAR_MAP = {
+  cat: { emoji: '🐱', bg: 'linear-gradient(135deg, #FFE0B2, #FFCC80)' },
+  dog: { emoji: '🐶', bg: 'linear-gradient(135deg, #FFCDD2, #EF9A9A)' },
+  panda: { emoji: '🐼', bg: 'linear-gradient(135deg, #ECEFF1, #CFD8DC)' },
+  fox: { emoji: '🦊', bg: 'linear-gradient(135deg, #FFE0B2, #FFB74D)' },
+  bear: { emoji: '🐻', bg: 'linear-gradient(135deg, #D7CCC8, #BCAAA4)' },
+  rabbit: { emoji: '🐰', bg: 'linear-gradient(135deg, #F8BBD0, #F48FB1)' },
+  lion: { emoji: '🦁', bg: 'linear-gradient(135deg, #FFF9C4, #FFF176)' },
+  frog: { emoji: '🐸', bg: 'linear-gradient(135deg, #C8E6C9, #A5D6A7)' }
+}
 
 // 用户信息
 const userName = computed(() => userStore.userInfo?.nickname || '匿名用户')
 const userSub = computed(() => userStore.userInfo?.username || '')
-const avatarText = computed(() => {
+// 头像显示：优先 emoji，无则取昵称首字
+const avatarDisplay = computed(() => {
+  const key = userStore.userInfo?.avatar
+  if (key && AVATAR_MAP[key]) return AVATAR_MAP[key].emoji
   const name = userName.value
   return name ? name.charAt(0) : '?'
+})
+// 头像背景样式（emoji 时用预设渐变，否则用凹陷背景）
+const avatarStyle = computed(() => {
+  const key = userStore.userInfo?.avatar
+  if (key && AVATAR_MAP[key]) {
+    return { background: AVATAR_MAP[key].bg }
+  }
+  return {}
 })
 
 function handleClose() {
