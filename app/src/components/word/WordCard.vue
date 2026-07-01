@@ -23,13 +23,18 @@
       class="word-card__fav"
       @click.stop="handleFavClick"
     >
-      <text class="word-card__fav-icon">{{ isFavorited ? '★' : '☆' }}</text>
+      <Heart
+        :size="20"
+        :color="isFavorited ? '#FE2C55' : '#D1D5DB'"
+        :fill="isFavorited ? '#FE2C55' : 'none'"
+      />
     </view>
   </view>
 </template>
 
 <script setup>
 import { computed } from 'vue'
+import { Heart } from 'lucide-vue-next'
 import WordTag from './WordTag.vue'
 import RiskBadge from '../common/RiskBadge.vue'
 
@@ -71,11 +76,11 @@ function handleFavClick() {
 .word-card {
   display: flex;
   align-items: center;
-  background-color: #FFFFFF;
-  border-radius: $uni-border-radius;
-  box-shadow: $uni-box-shadow;
-  padding: $uni-spacing-col-base $uni-spacing-row-base;
-  margin-bottom: $uni-spacing-col-sm;
+  background-color: $bg-card;
+  border-radius: 12px;
+  box-shadow: $shadow-sm;
+  padding: 12px 16px;
+  margin-bottom: 8px;
   transition: transform 0.2s;
 
   &:active {
@@ -91,25 +96,25 @@ function handleFavClick() {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    margin-bottom: $uni-spacing-row-sm;
+    margin-bottom: 8px;
   }
 
   &__word {
-    font-size: $uni-font-size-lg;
+    font-size: 16px;
     font-weight: 600;
-    color: $uni-text-color;
-    margin-right: $uni-spacing-row-sm;
+    color: $text-primary;
+    margin-right: 8px;
   }
 
   &__tags {
     display: flex;
     align-items: center;
-    gap: $uni-spacing-row-sm;
+    gap: 8px;
   }
 
   &__meaning {
-    font-size: $uni-font-size-base;
-    color: $uni-text-color-grey;
+    font-size: 14px;
+    color: $text-secondary;
     line-height: 1.5;
     // 两行截断
     display: -webkit-box;
@@ -120,17 +125,12 @@ function handleFavClick() {
 
   &__fav {
     flex-shrink: 0;
-    width: 64rpx;
-    height: 64rpx;
+    width: 32px;
+    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-left: $uni-spacing-row-sm;
-  }
-
-  &__fav-icon {
-    font-size: 44rpx;
-    color: $uni-color-warning;
+    margin-left: 8px;
   }
 }
 </style>

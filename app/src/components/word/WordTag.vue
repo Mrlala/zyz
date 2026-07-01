@@ -34,27 +34,27 @@ function handleClick() {
 .word-tag {
   display: inline-flex;
   align-items: center;
-  padding: 4rpx $uni-spacing-row-sm;
-  border-radius: 999rpx;
-  font-size: $uni-font-size-sm;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 13px;
   line-height: 1.4;
 
   // 分类标签：品牌色
   &--category {
-    background-color: rgba(79, 70, 229, 0.1);
-    color: $uni-color-primary;
+    background-color: rgba(254, 44, 85, 0.1);
+    color: $color-primary;
   }
 
   // 风险标签：中性灰，具体颜色由 RiskBadge 承担
   &--risk {
     background-color: rgba(107, 114, 128, 0.1);
-    color: $uni-text-color-grey;
+    color: $text-secondary;
   }
 
   // 来源标签：成功色
   &--source {
     background-color: rgba(16, 185, 129, 0.1);
-    color: $uni-color-success;
+    color: $color-success;
   }
 }
 </style>

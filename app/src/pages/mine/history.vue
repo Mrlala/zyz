@@ -1,83 +1,89 @@
 <template>
-  <view class="page history-page">
-    <!-- 顶部自定义导航栏 -->
-    <view class="nav-bar" :style="{ paddingTop: statusBarHeight + 'px' }">
-      <view class="nav-bar__inner">
-        <view class="nav-bar__back" @click="handleBack">‹</view>
-        <text class="nav-bar__title">{{ isTranslate ? '翻译历史' : '学习历史' }}</text>
-        <view v-if="records.length" class="nav-bar__clear" @click="handleClear">清空</view>
-        <view v-else class="nav-bar__placeholder"></view>
+  <view class="history-page">
+    <!-- 顶部栏 -->
+    <view class="top-bar" :style="{ paddingTop: statusBarHeight + 'px' }">
+      <view class="top-bar__inner">
+        <view class="top-bar__btn" @click="handleBack">
+          <ArrowLeft :size="20" color="#6B7280" />
+        </view>
+        <text class="top-bar__title">{{ isTranslate ? '翻译历史' : '浏览历史' }}</text>
+        <view v-if="records.length || translateRecords.length" class="top-bar__action" @click="handleClear">清空</view>
+        <view v-else class="top-bar__placeholder"></view>
       </view>
     </view>
-    <view class="nav-placeholder" :style="{ height: (statusBarHeight + 44) + 'px' }"></view>
+    <view class="top-bar-placeholder" :style="{ height: (statusBarHeight + 54) + 'px' }"></view>
 
-    <view class="history-page__body">
+    <view class="history-body">
       <!-- 翻译历史（本地存储） -->
       <template v-if="isTranslate">
         <view
           v-for="(item, idx) in translateRecords"
           :key="idx"
-          class="history-page__item card"
+          class="history-card"
           @click="retranslate(item)"
         >
-          <view class="history-page__item-text">{{ item.text }}</view>
-          <view class="history-page__item-footer">
-            <text class="history-page__item-mode">{{ item.mode === 'dict' ? '词典' : '中译中' }}</text>
-            <text class="history-page__item-time">{{ formatTime(item.created_at) }}</text>
+          <text class="history-card__text">{{ item.text }}</text>
+          <view class="history-card__footer">
+            <text class="history-card__mode">{{ item.mode === 'dict' ? '词典' : '中译中' }}</text>
+            <text class="history-card__time">{{ formatTime(item.created_at) }}</text>
           </view>
         </view>
 
-        <EmptyState
-          v-if="!translateRecords.length"
-          icon="🔄"
-          text="暂无翻译历史"
-          btn-text="去翻译"
-          @btnClick="goTranslate"
-        />
+        <!-- 翻译历史空状态 -->
+        <view v-if="!translateRecords.length" class="empty-state">
+          <view class="empty-state__icon">
+            <RotateCcw :size="32" color="#9CA3AF" />
+          </view>
+          <text class="empty-state__text">暂无翻译历史</text>
+          <view class="empty-state__btn" @click="goTranslate">
+            <text class="empty-state__btn-text">去翻译</text>
+          </view>
+        </view>
       </template>
 
-      <!-- 学习历史（接口数据） -->
+      <!-- 浏览历史（接口数据） -->
       <template v-else>
-        <view v-if="loading" class="history-page__loading">
-          <view class="history-page__loading-icon">⏳</view>
-          <text class="history-page__loading-text">加载中...</text>
+        <view v-if="loading" class="state-tip">
+          <text>加载中...</text>
         </view>
 
         <template v-else>
           <view
             v-for="item in records"
             :key="item.id || item.word_id"
-            class="history-page__item card"
+            class="history-card"
             @click="goDetail(item)"
           >
-            <view class="history-page__item-header">
-              <text class="history-page__item-word">{{ item.word || item.name }}</text>
+            <view class="history-card__header">
+              <text class="history-card__word">{{ item.word || item.name }}</text>
               <text
-                class="history-page__item-status"
-                :class="item.mastered ? 'history-page__item-status--ok' : 'history-page__item-status--no'"
+                class="history-card__status"
+                :class="item.mastered ? 'history-card__status--ok' : 'history-card__status--no'"
               >{{ item.mastered ? '已掌握' : '未掌握' }}</text>
             </view>
-            <view v-if="item.summary || item.meaning" class="history-page__item-text">
+            <view v-if="item.summary || item.meaning" class="history-card__text">
               {{ item.summary || item.meaning }}
             </view>
-            <view class="history-page__item-footer">
-              <text class="history-page__item-time">{{ formatTime(item.learned_at || item.created_at) }}</text>
+            <view class="history-card__footer">
+              <text class="history-card__time">{{ formatTime(item.learned_at || item.created_at) }}</text>
             </view>
           </view>
 
-          <EmptyState
-            v-if="!records.length"
-            icon="📖"
-            text="暂无学习记录"
-            btn-text="去学热词"
-            @btnClick="goHot"
-          />
+          <!-- 浏览历史空状态 -->
+          <view v-if="!records.length" class="empty-state">
+            <view class="empty-state__icon">
+              <BookOpen :size="32" color="#9CA3AF" />
+            </view>
+            <text class="empty-state__text">暂无浏览记录</text>
+            <view class="empty-state__btn" @click="goHot">
+              <text class="empty-state__btn-text">去热词排行</text>
+            </view>
+          </view>
 
-          <LoadMore
-            v-if="records.length > 0"
-            :status="loadMoreStatus"
-            @loadMore="loadMore"
-          />
+          <!-- 加载更多 -->
+          <view v-if="records.length > 0" class="load-more" @click="loadMore">
+            <text>{{ loading ? '加载中...' : (records.length >= total ? '没有更多了' : '点击加载更多') }}</text>
+          </view>
         </template>
       </template>
     </view>
@@ -87,15 +93,14 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad, onShow, onReachBottom } from '@dcloudio/uni-app'
-import EmptyState from '@/components/common/EmptyState.vue'
-import LoadMore from '@/components/common/LoadMore.vue'
+import { ArrowLeft, RotateCcw, BookOpen } from 'lucide-vue-next'
 import * as hotApi from '@/api/hot'
 import { useTranslateStore } from '@/store/modules/translate'
 
 const translateStore = useTranslateStore()
 
 const statusBarHeight = ref(0)
-// 历史类型：translate 翻译历史 / 默认学习历史
+// 历史类型：translate 翻译历史 / 默认浏览历史
 const type = ref('')
 const records = ref([])
 const page = ref(1)
@@ -107,12 +112,6 @@ const loading = ref(false)
 const isTranslate = computed(() => type.value === 'translate')
 // 翻译历史记录（来自 store）
 const translateRecords = computed(() => translateStore.history)
-
-const loadMoreStatus = computed(() => {
-  if (loading.value) return 'loading'
-  if (records.value.length >= total.value && records.value.length > 0) return 'noMore'
-  return 'more'
-})
 
 onLoad((options) => {
   try {
@@ -137,7 +136,7 @@ onReachBottom(() => {
   if (!isTranslate.value) loadMore()
 })
 
-// 获取学习历史
+// 获取浏览历史
 async function fetchHistory(reset = false) {
   if (loading.value) return
   loading.value = true
@@ -151,7 +150,7 @@ async function fetchHistory(reset = false) {
     total.value = (data && data.total) || 0
     records.value = reset ? list : records.value.concat(list)
   } catch (err) {
-    console.error('获取学习历史失败', err)
+    console.error('获取浏览历史失败', err)
   } finally {
     loading.value = false
   }
@@ -167,7 +166,7 @@ function loadMore() {
 function handleClear() {
   uni.showModal({
     title: '提示',
-    content: isTranslate.value ? '确定清空翻译历史？' : '确定清空学习历史？',
+    content: isTranslate.value ? '确定清空翻译历史？' : '确定清空浏览历史？',
     success: (res) => {
       if (res.confirm) {
         if (isTranslate.value) {
@@ -179,10 +178,9 @@ function handleClear() {
   })
 }
 
-// 重新翻译
+// 重新翻译（修复失效 switchTab → reLaunch）
 function retranslate(item) {
-  // 通过全局事件或直接跳转首页并填入（简化：跳转首页）
-  uni.switchTab({
+  uni.reLaunch({
     url: '/pages/index/index',
     success: () => {
       // 通知首页填入文本
@@ -199,12 +197,14 @@ function goDetail(item) {
   }
 }
 
+// 去翻译（修复失效 switchTab → reLaunch）
 function goTranslate() {
-  uni.switchTab({ url: '/pages/index/index' })
+  uni.reLaunch({ url: '/pages/index/index' })
 }
 
+// 去热词排行（修复失效 switchTab + 路由不存在 → navigateTo ranking）
 function goHot() {
-  uni.switchTab({ url: '/pages/hot/index' })
+  uni.navigateTo({ url: '/pages/hot/ranking' })
 }
 
 function handleBack() {
@@ -227,138 +227,181 @@ function formatTime(ts) {
 <style lang="scss" scoped>
 .history-page {
   min-height: 100vh;
-  background-color: $uni-bg-color;
+  background-color: $bg-page;
+}
 
-  .nav-bar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 100;
-    background-color: #FFFFFF;
-    box-shadow: $uni-box-shadow;
+/* ============ 顶部栏 ============ */
+.top-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  background-color: $bg-page;
 
-    &__inner {
-      height: 88rpx;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 $uni-spacing-row-base;
-    }
-
-    &__back {
-      width: 56rpx;
-      height: 56rpx;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 56rpx;
-      color: $uni-text-color;
-      line-height: 1;
-    }
-
-    &__title {
-      font-size: $uni-font-size-lg;
-      font-weight: 600;
-      color: $uni-text-color;
-    }
-
-    &__clear {
-      font-size: $uni-font-size-sm;
-      color: $uni-color-error;
-      padding: 0 $uni-spacing-row-sm;
-    }
-
-    &__placeholder {
-      width: 80rpx;
-    }
-  }
-
-  &__body {
-    padding: $uni-spacing-col-base $uni-spacing-row-base;
-    padding-bottom: 60rpx;
-  }
-
-  &__loading {
+  &__inner {
+    height: 54px;
     display: flex;
-    flex-direction: column;
     align-items: center;
-    padding: $uni-spacing-col-xl 0;
+    justify-content: space-between;
+    padding: 0 16px;
   }
 
-  &__loading-icon {
-    font-size: 96rpx;
-    margin-bottom: $uni-spacing-col-base;
+  &__btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
-  &__loading-text {
-    font-size: $uni-font-size-base;
-    color: $uni-text-color-grey;
+  &__title {
+    font-size: 16px;
+    font-weight: 600;
+    color: $text-primary;
   }
 
-  // 历史记录项
-  &__item {
-    margin-bottom: $uni-spacing-col-sm;
+  &__action {
+    font-size: 14px;
+    color: $color-danger;
+    padding: 0 4px;
   }
 
-  &__item-header {
+  &__placeholder {
+    width: 32px;
+  }
+}
+
+.top-bar-placeholder {
+  width: 100%;
+}
+
+/* ============ 主体 ============ */
+.history-body {
+  padding: 12px 16px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ============ 历史记录卡 ============ */
+.history-card {
+  padding: 14px 16px;
+  background-color: $bg-card;
+  border-radius: 12px;
+  box-shadow: $shadow-sm;
+
+  &__header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: $uni-spacing-row-sm;
+    margin-bottom: 8px;
   }
 
-  &__item-word {
-    font-size: $uni-font-size-lg;
+  &__word {
+    font-size: 16px;
     font-weight: 600;
-    color: $uni-text-color;
+    color: $text-primary;
   }
 
-  &__item-status {
-    font-size: $uni-font-size-xs;
-    padding: 4rpx $uni-spacing-row-sm;
-    border-radius: 999rpx;
+  &__status {
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 9999px;
 
     &--ok {
       background-color: rgba(16, 185, 129, 0.1);
-      color: $uni-color-success;
+      color: $color-success;
     }
 
     &--no {
       background-color: rgba(245, 158, 11, 0.1);
-      color: $uni-color-warning;
+      color: $color-warning;
     }
   }
 
-  &__item-text {
-    font-size: $uni-font-size-sm;
-    color: $uni-text-color-grey;
-    line-height: 1.6;
-    margin-bottom: $uni-spacing-row-sm;
-    // 两行截断
+  &__text {
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
     overflow: hidden;
+    font-size: 13px;
+    color: $text-secondary;
+    line-height: 1.6;
+    margin-bottom: 8px;
   }
 
-  &__item-footer {
+  &__footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
   }
 
-  &__item-mode {
-    font-size: $uni-font-size-xs;
-    color: $uni-color-primary;
-    background-color: rgba(79, 70, 229, 0.08);
-    padding: 4rpx $uni-spacing-row-sm;
-    border-radius: 999rpx;
+  &__mode {
+    font-size: 12px;
+    color: $color-primary;
+    background-color: rgba(254, 44, 85, 0.08);
+    padding: 2px 8px;
+    border-radius: 9999px;
   }
 
-  &__item-time {
-    font-size: $uni-font-size-xs;
-    color: $uni-text-color-placeholder;
+  &__time {
+    font-size: 12px;
+    color: $text-tertiary;
   }
+}
+
+/* ============ 状态提示 ============ */
+.state-tip {
+  padding: 64px 0;
+  text-align: center;
+  font-size: 14px;
+  color: $text-secondary;
+}
+
+/* ============ 空状态 ============ */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80px 0 40px;
+
+  &__icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background-color: $bg-sunken;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+  }
+
+  &__text {
+    font-size: 14px;
+    color: $text-secondary;
+    margin-bottom: 4px;
+  }
+
+  &__btn {
+    margin-top: 16px;
+    padding: 8px 20px;
+    border-radius: 9999px;
+    background-color: $color-primary;
+  }
+
+  &__btn-text {
+    font-size: 13px;
+    font-weight: 500;
+    color: #FFFFFF;
+  }
+}
+
+/* ============ 加载更多 ============ */
+.load-more {
+  text-align: center;
+  padding: 16px 0;
+  font-size: 12px;
+  color: $text-tertiary;
 }
 </style>

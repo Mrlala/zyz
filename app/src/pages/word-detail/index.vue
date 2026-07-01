@@ -1,42 +1,53 @@
 <template>
-  <view class="page detail-page">
-    <!-- 顶部自定义导航栏（含返回按钮） -->
-    <view class="nav-bar" :style="{ paddingTop: statusBarHeight + 'px' }">
-      <view class="nav-bar__inner">
-        <view class="nav-bar__back" @click="handleBack">‹</view>
-        <text class="nav-bar__title">词条详情</text>
-        <view class="nav-bar__share" @click="handleShare">↗</view>
+  <view class="detail-page">
+    <!-- 顶部栏 -->
+    <view class="top-bar" :style="{ paddingTop: statusBarHeight + 'px' }">
+      <view class="top-bar__inner">
+        <view class="top-bar__btn" @click="handleBack">
+          <ArrowLeft :size="20" color="#6B7280" />
+        </view>
+        <text class="top-bar__title">词条详情</text>
+        <view class="top-bar__btn" @click="handleShare">
+          <Share2 :size="20" color="#6B7280" />
+        </view>
       </view>
     </view>
-    <view class="nav-placeholder" :style="{ height: (statusBarHeight + 44) + 'px' }"></view>
+    <view class="top-bar-placeholder" :style="{ height: (statusBarHeight + 54) + 'px' }"></view>
 
-    <scroll-view scroll-y class="detail-page__body" :style="{ height: 'calc(100vh - ' + (statusBarHeight + 44) + 'px)' }">
+    <scroll-view scroll-y class="detail-page__body" :style="{ height: 'calc(100vh - ' + (statusBarHeight + 54) + 'px)' }">
       <!-- 加载中 -->
-      <view v-if="loading" class="detail-page__loading">
-        <view class="detail-page__loading-icon">⏳</view>
-        <text class="detail-page__loading-text">加载中...</text>
+      <view v-if="loading" class="state-tip">
+        <text>加载中...</text>
       </view>
 
       <template v-else-if="word">
-        <view class="detail-page__content card">
+        <view class="detail-card">
           <WordDetail :word="word" @relatedClick="handleRelatedClick" />
         </view>
 
         <!-- 互动数据 -->
-        <view class="detail-page__meta card">
-          <view class="detail-page__meta-item">
-            <text class="detail-page__meta-icon">🔥</text>
+        <view class="meta-card">
+          <view class="meta-card__item">
+            <Flame :size="14" color="#F59E0B" />
             <text>{{ word.hotness || word.hot_score || 0 }} 热度</text>
           </view>
-          <view class="detail-page__meta-item">
-            <text class="detail-page__meta-icon">⭐</text>
+          <view class="meta-card__item">
+            <Star :size="14" color="#F59E0B" :fill="'#F59E0B'" />
             <text>{{ word.favorite_count || 0 }} 收藏</text>
           </view>
         </view>
       </template>
 
       <!-- 空状态 -->
-      <EmptyState v-else icon="🔍" text="词条不存在或已下架" btn-text="返回" @btnClick="handleBack" />
+      <view v-else class="empty-state">
+        <view class="empty-state__icon">
+          <Search :size="32" color="#9CA3AF" />
+        </view>
+        <text class="empty-state__text">词条不存在或已下架</text>
+        <view class="empty-state__btn" @click="handleBack">
+          <text class="empty-state__btn-text">返回</text>
+        </view>
+      </view>
 
       <view class="detail-page__bottom-space"></view>
     </scroll-view>
@@ -48,11 +59,15 @@
         :class="{ 'detail-page__footer-btn--active': isFavorited }"
         @click="handleFavorite"
       >
-        <text class="detail-page__footer-icon">{{ isFavorited ? '★' : '☆' }}</text>
+        <Heart
+          :size="20"
+          :color="isFavorited ? '#FE2C55' : '#9CA3AF'"
+          :fill="isFavorited ? '#FE2C55' : 'none'"
+        />
         <text>{{ isFavorited ? '已收藏' : '收藏' }}</text>
       </view>
       <view class="detail-page__footer-btn" @click="openCorrection">
-        <text class="detail-page__footer-icon">✏️</text>
+        <Pencil :size="20" color="#6B7280" />
         <text>纠错</text>
       </view>
     </view>
@@ -84,7 +99,7 @@
           <view class="correction__btn correction__btn--cancel" @click="closeCorrection">取消</view>
           <view
             class="correction__btn correction__btn--submit"
-            :class="{ 'btn-disabled': submitting }"
+            :class="{ 'correction__btn--disabled': submitting }"
             @click="submitCorrection"
           >{{ submitting ? '提交中...' : '提交' }}</view>
         </view>
@@ -94,10 +109,10 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
+import { ArrowLeft, Share2, Flame, Star, Heart, Pencil, Search } from 'lucide-vue-next'
 import WordDetail from '@/components/word/WordDetail.vue'
-import EmptyState from '@/components/common/EmptyState.vue'
 import * as wordApi from '@/api/word'
 import * as correctionApi from '@/api/correction'
 import { useUserStore } from '@/store/modules/user'
@@ -236,140 +251,162 @@ async function submitCorrection() {
 <style lang="scss" scoped>
 .detail-page {
   min-height: 100vh;
-  background-color: $uni-bg-color;
+  background-color: $bg-page;
+}
 
-  .nav-bar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 100;
-    background-color: #FFFFFF;
-    box-shadow: $uni-box-shadow;
+/* ============ 顶部栏 ============ */
+.top-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  background-color: $bg-page;
 
-    &__inner {
-      height: 88rpx;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 $uni-spacing-row-base;
-    }
-
-    &__back {
-      width: 56rpx;
-      height: 56rpx;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 56rpx;
-      color: $uni-text-color;
-      line-height: 1;
-    }
-
-    &__title {
-      font-size: $uni-font-size-lg;
-      font-weight: 600;
-      color: $uni-text-color;
-    }
-
-    &__share {
-      width: 56rpx;
-      height: 56rpx;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: $uni-font-size-lg;
-      color: $uni-text-color;
-    }
-  }
-
-  &__body {
-    box-sizing: border-box;
-    padding: $uni-spacing-col-base $uni-spacing-row-base;
-    padding-bottom: 160rpx;
-  }
-
-  &__loading {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: $uni-spacing-col-xl 0;
-  }
-
-  &__loading-icon {
-    font-size: 96rpx;
-    margin-bottom: $uni-spacing-col-base;
-  }
-
-  &__loading-text {
-    font-size: $uni-font-size-base;
-    color: $uni-text-color-grey;
-  }
-
-  &__content {
-    margin-bottom: $uni-spacing-col-base;
-  }
-
-  &__meta {
-    display: flex;
-    justify-content: space-around;
-  }
-
-  &__meta-item {
+  &__inner {
+    height: 54px;
     display: flex;
     align-items: center;
-    font-size: $uni-font-size-sm;
-    color: $uni-text-color-grey;
+    justify-content: space-between;
+    padding: 0 16px;
   }
 
-  &__meta-icon {
-    margin-right: $uni-spacing-row-sm;
-  }
-
-  &__bottom-space {
-    height: 40rpx;
-  }
-
-  // 底部操作栏
-  &__footer {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
+  &__btn {
+    width: 32px;
+    height: 32px;
     display: flex;
-    background-color: #FFFFFF;
-    box-shadow: 0 -2rpx 12rpx rgba(0, 0, 0, 0.06);
-    padding: $uni-spacing-col-sm 0;
-    padding-bottom: calc(#{$uni-spacing-col-sm} + env(safe-area-inset-bottom));
-    z-index: 50;
-  }
-
-  &__footer-btn {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: $uni-spacing-row-sm 0;
-    font-size: $uni-font-size-sm;
-    color: $uni-text-color-grey;
-
-    &--active {
-      color: $uni-color-warning;
-    }
-
-    &:active {
-      opacity: 0.6;
-    }
   }
 
-  &__footer-icon {
-    font-size: 44rpx;
-    margin-bottom: 4rpx;
+  &__title {
+    font-size: 16px;
+    font-weight: 600;
+    color: $text-primary;
   }
 }
 
-// 纠错弹层
+.top-bar-placeholder {
+  width: 100%;
+}
+
+/* ============ 主体 ============ */
+.detail-page__body {
+  box-sizing: border-box;
+  padding: 12px 16px;
+  padding-bottom: 80px;
+}
+
+.detail-card {
+  padding: 16px;
+  background-color: $bg-card;
+  border-radius: 12px;
+  box-shadow: $shadow-sm;
+  margin-bottom: 8px;
+}
+
+.meta-card {
+  display: flex;
+  justify-content: space-around;
+  padding: 14px 16px;
+  background-color: $bg-card;
+  border-radius: 12px;
+  box-shadow: $shadow-xs;
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    color: $text-secondary;
+  }
+}
+
+.detail-page__bottom-space {
+  height: 20px;
+}
+
+/* ============ 状态提示 ============ */
+.state-tip {
+  padding: 64px 0;
+  text-align: center;
+  font-size: 14px;
+  color: $text-secondary;
+}
+
+/* ============ 空状态 ============ */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80px 0 40px;
+
+  &__icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background-color: $bg-sunken;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+  }
+
+  &__text {
+    font-size: 14px;
+    color: $text-secondary;
+    margin-bottom: 4px;
+  }
+
+  &__btn {
+    margin-top: 16px;
+    padding: 8px 20px;
+    border-radius: 9999px;
+    background-color: $color-primary;
+  }
+
+  &__btn-text {
+    font-size: 13px;
+    font-weight: 500;
+    color: #FFFFFF;
+  }
+}
+
+/* ============ 底部操作栏 ============ */
+.detail-page__footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  background-color: $bg-card;
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.06);
+  padding: 8px 0;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  z-index: 50;
+}
+
+.detail-page__footer-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 8px 0;
+  font-size: 13px;
+  color: $text-secondary;
+
+  &--active {
+    color: $color-primary;
+  }
+
+  &:active {
+    opacity: 0.6;
+  }
+}
+
+/* ============ 纠错弹层 ============ */
 .correction {
   position: fixed;
   top: 0;
@@ -393,85 +430,89 @@ async function submitCorrection() {
     right: 0;
     bottom: 0;
     background-color: #FFFFFF;
-    border-radius: $uni-border-radius-lg $uni-border-radius-lg 0 0;
-    padding: $uni-spacing-col-lg $uni-spacing-row-lg;
-    padding-bottom: calc(#{$uni-spacing-col-lg} + env(safe-area-inset-bottom));
+    border-radius: 20px 20px 0 0;
+    padding: 20px 16px;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
   }
 
   &__title {
-    font-size: $uni-font-size-lg;
+    font-size: 16px;
     font-weight: 600;
-    color: $uni-text-color;
+    color: $text-primary;
     text-align: center;
-    margin-bottom: $uni-spacing-col-base;
+    margin-bottom: 16px;
   }
 
   &__sub {
-    font-size: $uni-font-size-sm;
-    color: $uni-text-color-grey;
-    margin-bottom: $uni-spacing-row-sm;
+    font-size: 13px;
+    color: $text-secondary;
+    margin-bottom: 8px;
   }
 
   &__types {
     display: flex;
     flex-wrap: wrap;
-    gap: $uni-spacing-row-sm;
-    margin-bottom: $uni-spacing-col-base;
+    gap: 8px;
+    margin-bottom: 16px;
   }
 
   &__type {
-    padding: 12rpx $uni-spacing-row-base;
-    background-color: $uni-bg-color;
-    border-radius: 999rpx;
-    font-size: $uni-font-size-sm;
-    color: $uni-text-color;
-    border: 2rpx solid transparent;
+    padding: 8px 16px;
+    background-color: $bg-sunken;
+    border-radius: 9999px;
+    font-size: 13px;
+    color: $text-primary;
+    border: 1px solid transparent;
 
     &--active {
-      background-color: rgba(79, 70, 229, 0.1);
-      color: $uni-color-primary;
-      border-color: $uni-color-primary;
+      background-color: rgba(254, 44, 85, 0.1);
+      color: $color-primary;
+      border-color: $color-primary;
     }
   }
 
   &__textarea {
     width: 100%;
-    min-height: 160rpx;
-    padding: $uni-spacing-row-base;
-    background-color: $uni-bg-color;
-    border-radius: $uni-border-radius;
-    font-size: $uni-font-size-base;
-    color: $uni-text-color;
+    min-height: 80px;
+    padding: 12px 16px;
+    background-color: $bg-sunken;
+    border-radius: 10px;
+    font-size: 14px;
+    color: $text-primary;
     box-sizing: border-box;
-    margin-bottom: $uni-spacing-col-base;
+    margin-bottom: 16px;
   }
 
   &__placeholder {
-    color: $uni-text-color-placeholder;
+    color: $text-tertiary;
   }
 
   &__btns {
     display: flex;
-    gap: $uni-spacing-row-base;
+    gap: 12px;
   }
 
   &__btn {
     flex: 1;
-    height: 80rpx;
-    line-height: 80rpx;
+    height: 44px;
+    line-height: 44px;
     text-align: center;
-    border-radius: $uni-border-radius;
-    font-size: $uni-font-size-base;
+    border-radius: 10px;
+    font-size: 14px;
 
     &--cancel {
-      background-color: $uni-bg-color;
-      color: $uni-text-color-grey;
+      background-color: $bg-sunken;
+      color: $text-secondary;
     }
 
     &--submit {
-      background-color: $uni-color-primary;
+      background-color: $color-primary;
       color: #FFFFFF;
       font-weight: 600;
+    }
+
+    &--disabled {
+      opacity: 0.6;
     }
   }
 }

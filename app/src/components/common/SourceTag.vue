@@ -64,50 +64,50 @@ const confidenceText = computed(() => {
   &__source {
     display: inline-flex;
     align-items: center;
-    padding: 4rpx $uni-spacing-row-sm;
-    border-radius: 999rpx;
-    font-size: $uni-font-size-sm;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    font-size: 13px;
     line-height: 1.4;
 
     &--database {
       background-color: rgba(16, 185, 129, 0.12);
-      color: $uni-color-success;
+      color: $color-success;
     }
 
     &--ai_temp {
       background-color: rgba(245, 158, 11, 0.12);
-      color: $uni-color-warning;
+      color: $color-warning;
     }
   }
 
   &__sub {
-    margin-left: 4rpx;
-    font-size: $uni-font-size-sm;
+    margin-left: 2px;
+    font-size: 13px;
     opacity: 0.85;
   }
 
   &__confidence {
-    margin-left: $uni-spacing-row-sm;
-    padding: 2rpx $uni-spacing-row-sm;
-    border-radius: 999rpx;
-    font-size: $uni-font-size-sm;
+    margin-left: 8px;
+    padding: 1px 8px;
+    border-radius: 9999px;
+    font-size: 13px;
     line-height: 1.4;
-    background-color: $uni-bg-color;
-    color: $uni-text-color-grey;
+    background-color: $bg-sunken;
+    color: $text-secondary;
 
     &--high {
-      color: $uni-color-success;
+      color: $color-success;
       background-color: rgba(16, 185, 129, 0.08);
     }
 
     &--medium {
-      color: $uni-color-warning;
+      color: $color-warning;
       background-color: rgba(245, 158, 11, 0.08);
     }
 
     &--low {
-      color: $uni-text-color-grey;
-      background-color: $uni-bg-color;
+      color: $text-secondary;
+      background-color: $bg-sunken;
     }
   }
 }

@@ -1,41 +1,43 @@
 <template>
-  <view class="page category-page">
-    <!-- 顶部自定义导航栏 -->
-    <view class="nav-bar" :style="{ paddingTop: statusBarHeight + 'px' }">
-      <view class="nav-bar__inner">
-        <view class="nav-bar__back" @click="handleBack">‹</view>
-        <text class="nav-bar__title">{{ categoryInfo.name || '分类词条' }}</text>
-        <view class="nav-bar__placeholder"></view>
+  <view class="category-page">
+    <!-- 顶部栏 -->
+    <view class="top-bar" :style="{ paddingTop: statusBarHeight + 'px' }">
+      <view class="top-bar__inner">
+        <view class="top-bar__btn" @click="handleBack">
+          <ArrowLeft :size="20" color="#6B7280" />
+        </view>
+        <text class="top-bar__title">{{ categoryInfo.name || '分类词条' }}</text>
+        <view class="top-bar__placeholder"></view>
       </view>
     </view>
-    <view class="nav-placeholder" :style="{ height: (statusBarHeight + 44) + 'px' }"></view>
+    <view class="top-bar-placeholder" :style="{ height: (statusBarHeight + 54) + 'px' }"></view>
 
-    <view class="category-page__body">
+    <view class="category-body">
       <!-- 分类信息卡 -->
-      <view v-if="categoryInfo.name" class="category-page__info card">
-        <view class="category-page__info-name">
-          <text class="category-page__info-icon">{{ categoryInfo.icon || '📁' }}</text>
+      <view v-if="categoryInfo.name" class="info-card">
+        <view class="info-card__name">
+          <Folder :size="20" color="#FE2C55" />
           <text>{{ categoryInfo.name }}</text>
         </view>
-        <view v-if="categoryInfo.description" class="category-page__info-desc">
+        <view v-if="categoryInfo.description" class="info-card__desc">
           {{ categoryInfo.description }}
         </view>
-        <view class="category-page__info-stat">共 {{ total }} 个词条</view>
+        <view class="info-card__stat">共 {{ total }} 个词条</view>
       </view>
 
       <!-- 排序条 -->
-      <view class="category-page__sort">
+      <view class="sort-bar">
         <view
           v-for="item in sortOptions"
           :key="item.value"
-          class="category-page__sort-item"
-          :class="{ 'category-page__sort-item--active': sort === item.value }"
+          class="sort-bar__item"
+          :class="{ 'sort-bar__item--active': sort === item.value }"
           @click="switchSort(item.value)"
         >{{ item.label }}</view>
       </view>
 
       <!-- 词条列表 -->
-      <view class="category-page__list">
+      <view class="word-list">
         <WordCard
           v-for="word in words"
           :key="word.id"
@@ -44,17 +46,18 @@
           @favorite="handleFavorite"
         />
 
-        <EmptyState
-          v-if="!loading && words.length === 0"
-          icon="📂"
-          text="该分类下暂无词条"
-        />
+        <!-- 空状态 -->
+        <view v-if="!loading && words.length === 0" class="empty-state">
+          <view class="empty-state__icon">
+            <FolderOpen :size="32" color="#9CA3AF" />
+          </view>
+          <text class="empty-state__text">该分类下暂无词条</text>
+        </view>
 
-        <LoadMore
-          v-if="words.length > 0"
-          :status="loadMoreStatus"
-          @loadMore="loadMore"
-        />
+        <!-- 加载更多 -->
+        <view v-if="words.length > 0" class="load-more" @click="loadMore">
+          <text>{{ loading ? '加载中...' : (words.length >= total ? '没有更多了' : '点击加载更多') }}</text>
+        </view>
       </view>
     </view>
   </view>
@@ -63,9 +66,8 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad, onReachBottom, onPullDownRefresh } from '@dcloudio/uni-app'
+import { ArrowLeft, Folder, FolderOpen } from 'lucide-vue-next'
 import WordCard from '@/components/word/WordCard.vue'
-import LoadMore from '@/components/common/LoadMore.vue'
-import EmptyState from '@/components/common/EmptyState.vue'
 import * as categoryApi from '@/api/category'
 import { useUserStore } from '@/store/modules/user'
 
@@ -86,12 +88,6 @@ const sortOptions = [
   { label: '最新', value: 'new' },
   { label: '名称', value: 'name' }
 ]
-
-const loadMoreStatus = computed(() => {
-  if (loading.value) return 'loading'
-  if (words.value.length >= total.value && words.value.length > 0) return 'noMore'
-  return 'more'
-})
 
 onLoad((options) => {
   try {
@@ -188,105 +184,141 @@ function handleBack() {
 <style lang="scss" scoped>
 .category-page {
   min-height: 100vh;
-  background-color: $uni-bg-color;
+  background-color: $bg-page;
+}
 
-  .nav-bar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 100;
-    background-color: #FFFFFF;
-    box-shadow: $uni-box-shadow;
+/* ============ 顶部栏 ============ */
+.top-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  background-color: $bg-page;
 
-    &__inner {
-      height: 88rpx;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 $uni-spacing-row-base;
-    }
-
-    &__back {
-      width: 56rpx;
-      height: 56rpx;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 56rpx;
-      color: $uni-text-color;
-      line-height: 1;
-    }
-
-    &__title {
-      font-size: $uni-font-size-lg;
-      font-weight: 600;
-      color: $uni-text-color;
-    }
-
-    &__placeholder {
-      width: 56rpx;
-    }
-  }
-
-  &__body {
-    padding: $uni-spacing-col-base $uni-spacing-row-base;
-    padding-bottom: 60rpx;
-  }
-
-  // 分类信息卡
-  &__info {
-    margin-bottom: $uni-spacing-col-base;
-  }
-
-  &__info-name {
+  &__inner {
+    height: 54px;
     display: flex;
     align-items: center;
-    font-size: $uni-font-size-lg;
+    justify-content: space-between;
+    padding: 0 16px;
+  }
+
+  &__btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__title {
+    font-size: 16px;
     font-weight: 600;
-    color: $uni-text-color;
-    margin-bottom: $uni-spacing-row-sm;
+    color: $text-primary;
   }
 
-  &__info-icon {
-    font-size: $uni-font-size-title;
-    margin-right: $uni-spacing-row-sm;
+  &__placeholder {
+    width: 32px;
   }
+}
 
-  &__info-desc {
-    font-size: $uni-font-size-sm;
-    color: $uni-text-color-grey;
-    line-height: 1.6;
-    margin-bottom: $uni-spacing-row-sm;
-  }
+.top-bar-placeholder {
+  width: 100%;
+}
 
-  &__info-stat {
-    font-size: $uni-font-size-sm;
-    color: $uni-color-primary;
-  }
+/* ============ 主体 ============ */
+.category-body {
+  padding: 12px 16px 32px;
+}
 
-  // 排序条
-  &__sort {
+/* ============ 分类信息卡 ============ */
+.info-card {
+  padding: 16px;
+  background-color: $bg-card;
+  border-radius: 12px;
+  box-shadow: $shadow-sm;
+  margin-bottom: 12px;
+
+  &__name {
     display: flex;
     align-items: center;
-    padding: $uni-spacing-col-sm 0;
-    border-bottom: 2rpx solid $uni-border-color;
-    margin-bottom: $uni-spacing-col-sm;
+    gap: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    color: $text-primary;
+    margin-bottom: 8px;
   }
 
-  &__sort-item {
-    margin-right: $uni-spacing-row-lg;
-    font-size: $uni-font-size-sm;
-    color: $uni-text-color-grey;
+  &__desc {
+    font-size: 13px;
+    color: $text-secondary;
+    line-height: 1.6;
+    margin-bottom: 8px;
+  }
+
+  &__stat {
+    font-size: 13px;
+    color: $color-primary;
+  }
+}
+
+/* ============ 排序条 ============ */
+.sort-bar {
+  display: flex;
+  align-items: center;
+  padding: 8px 0 12px;
+  border-bottom: 1px solid $border-color-light;
+  margin-bottom: 8px;
+  gap: 16px;
+
+  &__item {
+    font-size: 13px;
+    color: $text-secondary;
 
     &--active {
-      color: $uni-text-color;
+      color: $color-primary;
       font-weight: 600;
     }
   }
+}
 
-  &__list {
-    padding-top: $uni-spacing-col-sm;
+/* ============ 词条列表 ============ */
+.word-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ============ 空状态 ============ */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80px 0 40px;
+
+  &__icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background-color: $bg-sunken;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
   }
+
+  &__text {
+    font-size: 14px;
+    color: $text-secondary;
+  }
+}
+
+/* ============ 加载更多 ============ */
+.load-more {
+  text-align: center;
+  padding: 16px 0;
+  font-size: 12px;
+  color: $text-tertiary;
 }
 </style>

@@ -6,7 +6,7 @@
     :class="`risk-warning--${riskLevel}`"
   >
     <view class="risk-warning__header">
-      <text class="risk-warning__icon">⚠</text>
+      <AlertTriangle :size="14" />
       <text class="risk-warning__title">风险提示</text>
       <text class="risk-warning__level">{{ levelText }}</text>
     </view>
@@ -25,6 +25,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { AlertTriangle } from 'lucide-vue-next'
 
 const props = defineProps({
   // 风险等级：low / medium / high
@@ -58,69 +59,65 @@ const levelText = computed(() => {
 
 <style lang="scss" scoped>
 .risk-warning {
-  border-radius: $uni-border-radius;
-  padding: $uni-spacing-col-base $uni-spacing-row-base;
-  margin: $uni-spacing-col-sm 0;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin: 8px 0;
 
   &--medium {
     background-color: rgba(245, 158, 11, 0.1);
-    border: 2rpx solid rgba(245, 158, 11, 0.3);
+    border: 1px solid rgba(245, 158, 11, 0.3);
   }
 
   &--high {
     background-color: rgba(239, 68, 68, 0.1);
-    border: 2rpx solid rgba(239, 68, 68, 0.3);
+    border: 1px solid rgba(239, 68, 68, 0.3);
   }
 
   &__header {
     display: flex;
     align-items: center;
-    margin-bottom: $uni-spacing-col-sm;
-  }
-
-  &__icon {
-    font-size: $uni-font-size-base;
-    margin-right: $uni-spacing-row-sm;
+    gap: 4px;
+    margin-bottom: 8px;
   }
 
   &__title {
-    font-size: $uni-font-size-base;
+    font-size: 14px;
     font-weight: 600;
-    color: $uni-text-color;
+    color: $text-primary;
   }
 
   &__level {
-    margin-left: $uni-spacing-row-sm;
-    font-size: $uni-font-size-sm;
-    padding: 2rpx $uni-spacing-row-sm;
-    border-radius: 999rpx;
+    margin-left: 8px;
+    font-size: 13px;
+    padding: 1px 8px;
+    border-radius: 9999px;
     background-color: rgba(255, 255, 255, 0.6);
   }
 
   &__row {
     display: flex;
     flex-wrap: wrap;
-    margin-top: $uni-spacing-row-sm;
-    font-size: $uni-font-size-sm;
+    margin-top: 8px;
+    font-size: 13px;
     line-height: 1.6;
   }
 
   &__label {
-    color: $uni-text-color-grey;
+    color: $text-secondary;
     flex-shrink: 0;
   }
 
   &__value {
-    color: $uni-text-color;
+    color: $text-primary;
     flex: 1;
   }
 }
 
 .risk-warning--medium .risk-warning__level {
-  color: $uni-risk-medium;
+  color: $risk-medium;
 }
 
 .risk-warning--high .risk-warning__level {
-  color: $uni-risk-high;
+  color: $risk-high;
 }
 </style>

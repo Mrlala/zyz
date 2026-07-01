@@ -1,30 +1,34 @@
 <template>
-  <view class="page search-page">
-    <!-- 顶部搜索栏（含返回按钮） -->
-    <view class="nav-bar" :style="{ paddingTop: statusBarHeight + 'px' }">
-      <view class="nav-bar__inner">
-        <view class="nav-bar__back" @click="handleBack">‹</view>
-        <view class="nav-bar__search">
-          <text class="nav-bar__search-icon">🔍</text>
+  <view class="search-page">
+    <!-- 顶部搜索栏 -->
+    <view class="top-bar" :style="{ paddingTop: statusBarHeight + 'px' }">
+      <view class="top-bar__inner">
+        <view class="top-bar__btn" @click="handleBack">
+          <ArrowLeft :size="20" color="#6B7280" />
+        </view>
+        <view class="top-bar__search">
+          <Search :size="16" color="#9CA3AF" />
           <input
-            class="nav-bar__search-input"
+            class="top-bar__search-input"
             v-model="keyword"
             placeholder="搜索词条"
-            placeholder-class="nav-bar__search-placeholder"
+            placeholder-class="top-bar__search-placeholder"
             :confirm-type="search"
             @confirm="handleSearch"
             @input="onInput"
           />
-          <view v-if="keyword" class="nav-bar__search-clear" @click="clearKeyword">✕</view>
+          <view v-if="keyword" class="top-bar__search-clear" @click="clearKeyword">
+            <X :size="14" color="#9CA3AF" />
+          </view>
         </view>
-        <view class="nav-bar__action" @click="handleSearch">搜索</view>
+        <view class="top-bar__action" @click="handleSearch">搜索</view>
       </view>
     </view>
-    <view class="nav-placeholder" :style="{ height: (statusBarHeight + 44) + 'px' }"></view>
+    <view class="top-bar-placeholder" :style="{ height: (statusBarHeight + 54) + 'px' }"></view>
 
-    <view class="search-page__body">
+    <view class="search-body">
       <!-- 搜索结果 -->
-      <view v-if="searched" class="search-page__result">
+      <view v-if="searched" class="search-result">
         <WordCard
           v-for="word in results"
           :key="word.id"
@@ -33,52 +37,54 @@
           @favorite="handleFavorite"
         />
 
-        <EmptyState
-          v-if="!loading && results.length === 0"
-          icon="🔍"
-          text="没有找到相关词条"
-          btn-text="提交新词条"
-          @btnClick="goSubmit"
-        />
+        <!-- 空状态 -->
+        <view v-if="!loading && results.length === 0" class="empty-state">
+          <view class="empty-state__icon">
+            <Search :size="32" color="#9CA3AF" />
+          </view>
+          <text class="empty-state__text">没有找到相关词条</text>
+          <view class="empty-state__btn" @click="goSubmit">
+            <text class="empty-state__btn-text">提交新词条</text>
+          </view>
+        </view>
 
-        <LoadMore
-          v-if="results.length > 0"
-          :status="loadMoreStatus"
-          @loadMore="loadMore"
-        />
+        <!-- 加载更多 -->
+        <view v-if="results.length > 0" class="load-more" @click="loadMore">
+          <text>{{ loading ? '加载中...' : (results.length >= total ? '没有更多了' : '点击加载更多') }}</text>
+        </view>
       </view>
 
       <!-- 搜索引导：历史 + 热门 -->
-      <view v-else class="search-page__guide">
+      <view v-else class="search-guide">
         <!-- 搜索历史 -->
-        <view v-if="history.length" class="search-page__section">
-          <view class="search-page__section-header">
-            <text class="search-page__section-title">搜索历史</text>
-            <text class="search-page__section-action" @click="clearHistory">清空</text>
+        <view v-if="history.length" class="guide-section">
+          <view class="guide-section__header">
+            <text class="guide-section__title">搜索历史</text>
+            <text class="guide-section__action" @click="clearHistory">清空</text>
           </view>
-          <view class="search-page__tags">
+          <view class="guide-section__tags">
             <view
               v-for="(item, idx) in history"
               :key="idx"
-              class="search-page__tag"
+              class="tag-pill"
               @click="searchFromTag(item)"
             >{{ item }}</view>
           </view>
         </view>
 
         <!-- 热门搜索 -->
-        <view class="search-page__section">
-          <view class="search-page__section-header">
-            <text class="search-page__section-title">热门搜索</text>
+        <view class="guide-section">
+          <view class="guide-section__header">
+            <text class="guide-section__title">热门搜索</text>
           </view>
-          <view class="search-page__tags">
+          <view class="guide-section__tags">
             <view
               v-for="(item, idx) in hotKeywords"
               :key="idx"
-              class="search-page__tag search-page__tag--hot"
+              class="tag-pill tag-pill--hot"
               @click="searchFromTag(item)"
             >
-              <text class="search-page__tag-rank">{{ idx + 1 }}</text>
+              <text class="tag-pill__rank" :class="{ 'tag-pill__rank--top': idx < 3 }">{{ idx + 1 }}</text>
               <text>{{ item }}</text>
             </view>
           </view>
@@ -91,9 +97,8 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad, onReachBottom } from '@dcloudio/uni-app'
+import { ArrowLeft, Search, X } from 'lucide-vue-next'
 import WordCard from '@/components/word/WordCard.vue'
-import LoadMore from '@/components/common/LoadMore.vue'
-import EmptyState from '@/components/common/EmptyState.vue'
 import * as wordApi from '@/api/word'
 import { useUserStore } from '@/store/modules/user'
 import storage from '@/utils/storage'
@@ -115,12 +120,6 @@ const searched = ref(false)
 const history = ref([])
 // 热门搜索词（本地预置）
 const hotKeywords = ['996', 'yyds', 'emo', '打工人', '躺平', '内卷', '破防', '社死']
-
-const loadMoreStatus = computed(() => {
-  if (loading.value) return 'loading'
-  if (results.value.length >= total.value && results.value.length > 0) return 'noMore'
-  return 'more'
-})
 
 onLoad(() => {
   try {
@@ -173,7 +172,7 @@ async function handleSearch() {
 function loadMore() {
   if (loading.value || results.value.length >= total.value) return
   page.value++
-  doSearch(false)
+  doSearch(true)
 }
 
 // 搜索请求（追加模式）
@@ -267,141 +266,187 @@ function handleBack() {
 <style lang="scss" scoped>
 .search-page {
   min-height: 100vh;
-  background-color: $uni-bg-color;
+  background-color: $bg-page;
+}
 
-  .nav-bar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 100;
-    background-color: #FFFFFF;
-    box-shadow: $uni-box-shadow;
+/* ============ 顶部栏 ============ */
+.top-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  background-color: $bg-page;
 
-    &__inner {
-      height: 88rpx;
-      display: flex;
-      align-items: center;
-      padding: 0 $uni-spacing-row-base;
-      gap: $uni-spacing-row-sm;
-    }
-
-    &__back {
-      width: 48rpx;
-      font-size: 56rpx;
-      color: $uni-text-color;
-      line-height: 1;
-      text-align: center;
-    }
-
-    &__search {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      height: 60rpx;
-      padding: 0 $uni-spacing-row-base;
-      background-color: $uni-bg-color;
-      border-radius: 999rpx;
-    }
-
-    &__search-icon {
-      font-size: $uni-font-size-base;
-      margin-right: $uni-spacing-row-sm;
-    }
-
-    &__search-input {
-      flex: 1;
-      font-size: $uni-font-size-sm;
-      color: $uni-text-color;
-    }
-
-    &__search-placeholder {
-      color: $uni-text-color-placeholder;
-      font-size: $uni-font-size-sm;
-    }
-
-    &__search-clear {
-      width: 40rpx;
-      text-align: center;
-      color: $uni-text-color-placeholder;
-      font-size: $uni-font-size-sm;
-    }
-
-    &__action {
-      font-size: $uni-font-size-sm;
-      color: $uni-color-primary;
-      padding: 0 $uni-spacing-row-sm;
-    }
+  &__inner {
+    height: 54px;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 8px;
   }
 
-  &__body {
-    padding: $uni-spacing-col-base $uni-spacing-row-base;
-    padding-bottom: 60rpx;
+  &__btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
-  // 引导区
-  &__section {
-    margin-bottom: $uni-spacing-col-lg;
+  &__search {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    height: 36px;
+    padding: 0 12px;
+    background-color: $bg-sunken;
+    border-radius: 9999px;
+    gap: 8px;
   }
 
-  &__section-header {
+  &__search-input {
+    flex: 1;
+    font-size: 14px;
+    color: $text-primary;
+  }
+
+  &__search-placeholder {
+    color: $text-tertiary;
+    font-size: 14px;
+  }
+
+  &__search-clear {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__action {
+    font-size: 14px;
+    color: $color-primary;
+    padding: 0 4px;
+  }
+}
+
+.top-bar-placeholder {
+  width: 100%;
+}
+
+/* ============ 主体 ============ */
+.search-body {
+  padding: 12px 16px 32px;
+}
+
+/* ============ 搜索结果 ============ */
+.search-result {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ============ 引导区 ============ */
+.guide-section {
+  margin-bottom: 24px;
+
+  &__header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: $uni-spacing-row-base;
+    margin-bottom: 12px;
   }
 
-  &__section-title {
-    font-size: $uni-font-size-base;
+  &__title {
+    font-size: 14px;
     font-weight: 600;
-    color: $uni-text-color;
+    color: $text-primary;
   }
 
-  &__section-action {
-    font-size: $uni-font-size-sm;
-    color: $uni-text-color-grey;
+  &__action {
+    font-size: 13px;
+    color: $text-secondary;
   }
 
   &__tags {
     display: flex;
     flex-wrap: wrap;
-    gap: $uni-spacing-row-sm;
+    gap: 8px;
   }
+}
 
-  &__tag {
-    display: inline-flex;
-    align-items: center;
-    padding: 12rpx $uni-spacing-row-base;
-    background-color: #FFFFFF;
-    border-radius: 999rpx;
-    font-size: $uni-font-size-sm;
-    color: $uni-text-color;
+.tag-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
+  background-color: $bg-card;
+  border-radius: 9999px;
+  font-size: 13px;
+  color: $text-primary;
+  box-shadow: $shadow-xs;
 
-    &--hot {
-      color: $uni-text-color;
-    }
-  }
-
-  &__tag-rank {
-    width: 32rpx;
-    height: 32rpx;
-    line-height: 32rpx;
+  &__rank {
+    width: 18px;
+    height: 18px;
+    line-height: 18px;
     text-align: center;
-    background-color: $uni-bg-color;
-    color: $uni-text-color-grey;
+    background-color: $bg-sunken;
+    color: $text-secondary;
     border-radius: 50%;
-    font-size: $uni-font-size-xs;
-    margin-right: $uni-spacing-row-sm;
+    font-size: 11px;
+    margin-right: 6px;
 
-    .search-page__tag--hot:nth-child(-n + 3) & {
+    &--top {
       background-color: rgba(245, 158, 11, 0.15);
-      color: $uni-color-warning;
+      color: $color-warning;
     }
   }
+}
 
-  // 结果区
-  &__result {
-    padding-top: $uni-spacing-row-sm;
+/* ============ 空状态 ============ */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80px 0 40px;
+
+  &__icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background-color: $bg-sunken;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
   }
+
+  &__text {
+    font-size: 14px;
+    color: $text-secondary;
+    margin-bottom: 4px;
+  }
+
+  &__btn {
+    margin-top: 16px;
+    padding: 8px 20px;
+    border-radius: 9999px;
+    background-color: $color-primary;
+  }
+
+  &__btn-text {
+    font-size: 13px;
+    font-weight: 500;
+    color: #FFFFFF;
+  }
+}
+
+/* ============ 加载更多 ============ */
+.load-more {
+  text-align: center;
+  padding: 16px 0;
+  font-size: 12px;
+  color: $text-tertiary;
 }
 </style>

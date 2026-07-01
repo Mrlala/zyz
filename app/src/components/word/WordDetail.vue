@@ -137,109 +137,109 @@ function handleRelatedClick(item) {
     display: flex;
     align-items: baseline;
     flex-wrap: wrap;
-    margin-bottom: $uni-spacing-col-sm;
+    margin-bottom: 8px;
   }
 
   &__word {
-    font-size: $uni-font-size-title;
+    font-size: 18px;
     font-weight: 700;
-    color: $uni-text-color;
-    margin-right: $uni-spacing-row-base;
+    color: $text-primary;
+    margin-right: 16px;
   }
 
   &__pinyin {
-    font-size: $uni-font-size-base;
-    color: $uni-text-color-grey;
+    font-size: 14px;
+    color: $text-secondary;
   }
 
   &__meta {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: $uni-spacing-row-sm;
-    margin-bottom: $uni-spacing-col-base;
+    gap: 8px;
+    margin-bottom: 12px;
   }
 
   &__section {
-    margin-bottom: $uni-spacing-col-base;
+    margin-bottom: 12px;
   }
 
   &__section-title {
-    font-size: $uni-font-size-base;
+    font-size: 14px;
     font-weight: 600;
-    color: $uni-text-color;
-    margin-bottom: $uni-spacing-row-sm;
-    padding-left: $uni-spacing-row-sm;
-    border-left: 6rpx solid $uni-color-primary;
+    color: $text-primary;
+    margin-bottom: 8px;
+    padding-left: 8px;
+    border-left: 3px solid $color-primary;
   }
 
   &__section-content {
-    font-size: $uni-font-size-base;
-    color: $uni-text-color;
+    font-size: 14px;
+    color: $text-primary;
     line-height: 1.7;
   }
 
   &__contexts {
     display: flex;
     flex-direction: column;
-    gap: $uni-spacing-row-sm;
+    gap: 8px;
   }
 
   &__context {
     display: flex;
     align-items: flex-start;
-    padding: $uni-spacing-row-sm $uni-spacing-row-base;
-    background-color: $uni-bg-color;
-    border-radius: $uni-border-radius;
-    border: 2rpx solid transparent;
+    padding: 8px 16px;
+    background-color: $bg-sunken;
+    border-radius: 10px;
+    border: 1px solid transparent;
 
     &--active {
-      background-color: rgba(79, 70, 229, 0.08);
-      border-color: rgba(79, 70, 229, 0.3);
+      background-color: rgba(254, 44, 85, 0.08);
+      border-color: rgba(254, 44, 85, 0.3);
     }
   }
 
   &__context-name {
-    font-size: $uni-font-size-sm;
-    color: $uni-text-color-grey;
+    font-size: 13px;
+    color: $text-secondary;
     flex-shrink: 0;
-    margin-right: $uni-spacing-row-sm;
+    margin-right: 8px;
   }
 
   &__context--active &__context-name {
-    color: $uni-color-primary;
+    color: $color-primary;
     font-weight: 600;
   }
 
   &__context-meaning {
-    font-size: $uni-font-size-sm;
-    color: $uni-text-color;
+    font-size: 13px;
+    color: $text-primary;
     flex: 1;
     line-height: 1.6;
   }
 
   &__example {
-    font-size: $uni-font-size-sm;
-    color: $uni-text-color-grey;
+    font-size: 13px;
+    color: $text-secondary;
     line-height: 1.7;
-    padding: $uni-spacing-row-sm $uni-spacing-row-base;
-    background-color: $uni-bg-color;
-    border-radius: $uni-border-radius;
-    margin-bottom: $uni-spacing-row-sm;
+    padding: 8px 16px;
+    background-color: $bg-sunken;
+    border-radius: 10px;
+    margin-bottom: 8px;
   }
 
   &__related {
     display: flex;
     flex-wrap: wrap;
-    gap: $uni-spacing-row-sm;
+    gap: 8px;
   }
 
   &__related-item {
-    padding: $uni-spacing-row-sm $uni-spacing-row-base;
-    background-color: rgba(79, 70, 229, 0.08);
-    color: $uni-color-primary;
-    border-radius: 999rpx;
-    font-size: $uni-font-size-sm;
+    padding: 8px 16px;
+    background-color: rgba(254, 44, 85, 0.08);
+    color: $color-primary;
+    border-radius: 9999px;
+    font-size: 13px;
 
     &:active {
       opacity: 0.7;
