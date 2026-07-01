@@ -1,8 +1,7 @@
 /**
  * 翻译相关接口
  * 对应后端：backend/api/v1/translate.py
- * - POST /translate        中译中翻译（mode: translate/dict）
- * - POST /translate/dict   词典模式匹配
+ * - POST /translate  中译中翻译（mode: translate/dict）
  */
 import { post } from './request'
 
@@ -16,16 +15,6 @@ export function translate(text, mode = 'translate') {
   return post('/translate', { text, mode })
 }
 
-/**
- * 词典模式匹配（独立接口，直接返回命中词条列表）
- * @param {string} text 待匹配文本
- * @returns {Promise<{hits: Array, total: number}>}
- */
-export function translateDict(text) {
-  return post('/translate/dict', { text })
-}
-
 export default {
-  translate,
-  translateDict
+  translate
 }

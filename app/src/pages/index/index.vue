@@ -140,7 +140,7 @@
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { onLoad, onShow, onUnload } from '@dcloudio/uni-app'
 import { Menu, Plus, ArrowUp, BookOpen, ShieldCheck, Trophy, History, Star, Send } from 'lucide-vue-next'
 import { useTranslateStore } from '@/store/modules/translate'
@@ -149,7 +149,6 @@ import ResultCards from '@/components/chat/ResultCards.vue'
 import Drawer from '@/components/chat/Drawer.vue'
 import * as feedbackApi from '@/api/feedback'
 import * as userApi from '@/api/user'
-import storage from '@/utils/storage'
 
 const translateStore = useTranslateStore()
 const userStore = useUserStore()
@@ -174,15 +173,20 @@ const modes = [
   { key: 'dict', label: '词典模式' }
 ]
 
-// 快捷功能入口（从抽屉迁移到首页空状态）
-const functions = [
-  { key: 'dict', label: '词库', url: '/pages/dict/index', icon: BookOpen },
-  { key: 'ranking', label: '热词排行', url: '/pages/hot/ranking', icon: Trophy },
-  { key: 'history', label: '翻译历史', url: '/pages/mine/history?type=translate', icon: History },
-  { key: 'favorites', label: '收藏', url: '/pages/mine/favorites', icon: Star },
-  { key: 'submissions', label: '我的提交', url: '/pages/mine/submissions', icon: Send },
-  { key: 'review', label: '审核', url: '/pages/review/index', icon: ShieldCheck }
-]
+// 快捷功能入口（按权限过滤：审核仅管理员可见）
+const functions = computed(() => {
+  const list = [
+    { key: 'dict', label: '词库', url: '/pages/dict/index', icon: BookOpen },
+    { key: 'ranking', label: '热词排行', url: '/pages/hot/ranking', icon: Trophy },
+    { key: 'history', label: '翻译历史', url: '/pages/mine/history?type=translate', icon: History },
+    { key: 'favorites', label: '收藏', url: '/pages/mine/favorites', icon: Star },
+    { key: 'submissions', label: '我的提交', url: '/pages/mine/submissions', icon: Send }
+  ]
+  if (userStore.isAdmin) {
+    list.push({ key: 'review', label: '审核', url: '/pages/review/index', icon: ShieldCheck })
+  }
+  return list
+})
 
 function modeLabel(m) {
   const found = modes.find(x => x.key === m)

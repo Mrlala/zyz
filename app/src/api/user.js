@@ -110,8 +110,6 @@ export function getTranslationFavorites(params) {
 }
 
 export default {
-  register,
-  login,
   registerAccount,
   loginAccount,
   updateProfile,

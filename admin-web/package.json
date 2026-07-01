@@ -10,14 +10,22 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",
+    "@vueuse/core": "^14.3.0",
     "axios": "^1.7.2",
     "echarts": "^5.5.0",
     "element-plus": "^2.7.6",
+    "file-saver": "^2.0.5",
+    "nprogress": "^0.2.0",
     "pinia": "^2.1.7",
+    "screenfull": "^6.0.2",
     "vue": "^3.4.31",
-    "vue-router": "^4.4.0"
+    "vue-router": "^4.4.0",
+    "vue3-json-viewer": "^2.4.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@types/file-saver": "^2.0.7",
+    "@types/nprogress": "^0.2.3",
     "@vitejs/plugin-vue": "^5.0.5",
     "sass": "^1.77.6",
     "typescript": "^5.4.5",

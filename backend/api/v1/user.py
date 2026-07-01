@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from api.dependencies import get_current_user_required, TOKEN_EXPIRES_IN
+from api.dependencies import get_current_user_required, TOKEN_EXPIRES_IN, _get_admin_user_ids
 from core.database import get_db
 from core.security import create_access_token
 from models.submission import Submission
@@ -207,6 +207,7 @@ async def get_profile(
         "achievement_count": profile.get("stats", {}).get("achievement_count", 0),
         "registered_at": profile.get("last_login_at"),
         "preferences": profile.get("preferences", {}),
+        "is_admin": user.id in _get_admin_user_ids(),
     })
 
 

@@ -187,13 +187,6 @@ const avatarDisplay = computed(() => {
   const name = userName.value
   return name ? name.charAt(0) : '?'
 })
-const avatarStyle = computed(() => {
-  const key = userStore.userInfo?.avatar
-  if (key && AVATAR_MAP[key]) {
-    return { background: AVATAR_MAP[key].bg }
-  }
-  return {}
-})
 const avatarInnerStyle = computed(() => {
   const key = userStore.userInfo?.avatar
   if (key && AVATAR_MAP[key]) {

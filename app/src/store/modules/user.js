@@ -36,6 +36,8 @@ export const useUserStore = defineStore('user', () => {
   const needsProfileSetup = computed(
     () => !!token.value && !userInfo.value?.nickname
   )
+  // 是否管理员
+  const isAdmin = computed(() => !!userInfo.value?.is_admin)
 
   /**
    * 账号密码注册
@@ -164,6 +166,7 @@ export const useUserStore = defineStore('user', () => {
     nickname,
     avatar,
     needsProfileSetup,
+    isAdmin,
     // actions
     accountRegister,
     accountLogin,

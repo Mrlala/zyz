@@ -1,5 +1,8 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import NProgress from 'nprogress'
 import { useAuthStore } from '@/store/modules/auth'
+
+NProgress.configure({ showSpinner: false, trickleSpeed: 200 })
 
 const routes: RouteRecordRaw[] = [
   {
@@ -92,6 +95,7 @@ const router = createRouter({
 
 // 全局前置守卫：token + 权限校验
 router.beforeEach(async (to, _from, next) => {
+  NProgress.start()
   const auth = useAuthStore()
   // 恢复 profile（页面刷新后 store 丢失）
   if (auth.token && !auth.profile) {
@@ -130,6 +134,10 @@ router.beforeEach(async (to, _from, next) => {
   }
 
   next()
+})
+
+router.afterEach(() => {
+  NProgress.done()
 })
 
 export default router

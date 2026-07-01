@@ -116,3 +116,37 @@ a {
   color: #909399;
   margin: 0 0 28px;
 }
+
+/* nprogress 进度条颜色 */
+#nprogress .bar {
+  background: var(--admin-primary) !important;
+  height: 3px !important;
+}
+#nprogress .peg {
+  box-shadow: 0 0 10px var(--admin-primary), 0 0 5px var(--admin-primary) !important;
+}
+
+/* 暗色模式适配 */
+html.dark {
+  --admin-bg: #1d1e1f;
+  color-scheme: dark;
+}
+html.dark .page-card,
+html.dark .stat-card {
+  background: #262727;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+html.dark .header {
+  background: #262727 !important;
+  border-bottom-color: #414243 !important;
+}
+html.dark .collapse-btn,
+html.dark .header-icon {
+  color: #cfd3dc;
+}
+html.dark .page-title {
+  color: #e5eaf3;
+}
+html.dark .user-name {
+  color: #e5eaf3;
+}

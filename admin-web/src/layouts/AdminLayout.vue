@@ -33,6 +33,17 @@
           <span class="page-title">{{ currentTitle }}</span>
         </div>
         <div class="header-right">
+          <el-tooltip :content="theme.theme === 'light' ? '暗色模式' : '亮色模式'" placement="bottom">
+            <el-icon class="header-icon" @click="theme.toggle()">
+              <Moon v-if="theme.theme === 'light'" />
+              <Sunny v-else />
+            </el-icon>
+          </el-tooltip>
+          <el-tooltip content="全屏切换" placement="bottom">
+            <el-icon class="header-icon" @click="toggleFullscreen">
+              <FullScreen />
+            </el-icon>
+          </el-tooltip>
           <el-dropdown @command="onCommand">
             <span class="user-info">
               <el-avatar :size="28" class="user-avatar">{{ avatarText }}</el-avatar>
@@ -105,13 +116,23 @@ import {
   DataLine,
   Cpu,
   List,
+  Moon,
+  Sunny,
+  FullScreen,
 } from '@element-plus/icons-vue'
+import screenfull from 'screenfull'
 import { useAuthStore } from '@/store/modules/auth'
+import { useThemeStore } from '@/store/modules/theme'
 import { authApi } from '@/api/manage'
 
 const auth = useAuthStore()
+const theme = useThemeStore()
 const route = useRoute()
 const router = useRouter()
+
+function toggleFullscreen() {
+  if (screenfull.isEnabled) screenfull.toggle()
+}
 
 const collapsed = ref(false)
 
@@ -267,6 +288,16 @@ async function submitChangePwd() {
 .header-right {
   display: flex;
   align-items: center;
+  gap: 4px;
+}
+.header-icon {
+  font-size: 18px;
+  cursor: pointer;
+  color: #606266;
+  margin-right: 12px;
+}
+.header-icon:hover {
+  color: var(--admin-primary);
 }
 .user-info {
   display: flex;
