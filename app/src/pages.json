@@ -95,6 +95,13 @@
       }
     },
     {
+      "path": "pages/mine/agreement",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "协议"
+      }
+    },
+    {
       "path": "pages/mine/achievements",
       "style": {
         "navigationStyle": "custom",

@@ -37,15 +37,6 @@
           </view>
         </view>
         <view class="group-divider"></view>
-        <!-- 手机号 -->
-        <view class="group-row" @click="showDeveloping">
-          <text class="group-row__label">手机号</text>
-          <view class="group-row__right">
-            <text class="group-row__value">{{ phoneText }}</text>
-            <ChevronRight :size="16" color="#C0C4CC" />
-          </view>
-        </view>
-        <view class="group-divider"></view>
         <!-- 我的成就 -->
         <view class="group-row" @click="goAchievements">
           <text class="group-row__label">我的成就</text>
@@ -114,13 +105,13 @@
         </view>
         <view class="group-divider"></view>
         <!-- 隐私政策 -->
-        <view class="group-row" @click="showDeveloping">
+        <view class="group-row" @click="goAgreement('privacy')">
           <text class="group-row__label">隐私政策</text>
           <ChevronRight :size="16" color="#C0C4CC" />
         </view>
         <view class="group-divider"></view>
         <!-- 用户协议 -->
-        <view class="group-row" @click="showDeveloping">
+        <view class="group-row" @click="goAgreement('terms')">
           <text class="group-row__label">用户协议</text>
           <ChevronRight :size="16" color="#C0C4CC" />
         </view>
@@ -179,12 +170,6 @@ const darkMode = computed(() => {
 })
 
 const userName = computed(() => userStore.userInfo?.nickname || '匿名用户')
-const phoneText = computed(() => {
-  const phone = userStore.userInfo?.phone || userStore.userInfo?.username || ''
-  if (!phone) return '未绑定'
-  if (phone.length === 11) return phone.slice(0, 3) + '****' + phone.slice(7)
-  return phone
-})
 // 预设头像 emoji 映射（与 profile-setup.vue 一致）
 const AVATAR_MAP = {
   cat: { emoji: '🐱', bg: 'linear-gradient(135deg, #FFE0B2, #FFCC80)' },
@@ -331,6 +316,11 @@ function goAchievements() {
 // 跳转资料编辑页（复用 profile-setup，编辑模式）
 function goEditProfile() {
   uni.navigateTo({ url: '/pages/auth/profile-setup?mode=edit' })
+}
+
+// 跳转协议页（隐私政策 / 用户协议）
+function goAgreement(type) {
+  uni.navigateTo({ url: `/pages/mine/agreement?type=${type}` })
 }
 </script>
 

@@ -162,6 +162,8 @@ const statusBarHeight = ref(0)
 const period = ref('daily')
 const list = ref([])
 const loading = ref(true)
+// 排序方式：default(后端返回顺序) | hotness(热度降序) | votes(投票数降序)
+const sortBy = ref('default')
 
 // 每日热词
 const dailyList = ref([])
@@ -180,9 +182,18 @@ const periods = [
   { label: '本月', value: 'monthly' }
 ]
 
-// TOP3 与剩余列表
-const top3 = computed(() => list.value.slice(0, 3))
-const rest = computed(() => list.value.slice(3))
+// TOP3 与剩余列表（按当前排序方式重排）
+const sortedList = computed(() => {
+  const arr = [...list.value]
+  if (sortBy.value === 'hotness') {
+    arr.sort((a, b) => (b.hotness || b.hot_score || 0) - (a.hotness || a.hot_score || 0))
+  } else if (sortBy.value === 'votes') {
+    arr.sort((a, b) => (b.vote_count || 0) - (a.vote_count || 0))
+  }
+  return arr
+})
+const top3 = computed(() => sortedList.value.slice(0, 3))
+const rest = computed(() => sortedList.value.slice(3))
 
 // 今日热词日期文案：2026-07-01 → 7月1日
 const dailyDateText = computed(() => {
@@ -304,8 +315,24 @@ function incrementHotness(item) {
   }
 }
 
+// 筛选：选择排序方式（前端重排，无需后端请求）
+const sortOptions = [
+  { key: 'default', label: '默认排序' },
+  { key: 'hotness', label: '按热度排序' },
+  { key: 'votes', label: '按投票数排序' }
+]
+
 function handleFilter() {
-  uni.showToast({ title: '筛选功能开发中', icon: 'none' })
+  uni.showActionSheet({
+    itemList: sortOptions.map(o => o.label),
+    success: (res) => {
+      const selected = sortOptions[res.tapIndex]
+      if (selected && sortBy.value !== selected.key) {
+        sortBy.value = selected.key
+        uni.showToast({ title: '已切换：' + selected.label, icon: 'none' })
+      }
+    }
+  })
 }
 
 function handleBack() {
