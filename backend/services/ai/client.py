@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from typing import Any
 
 import httpx
@@ -21,17 +22,73 @@ REQUEST_TIMEOUT = 30
 # 失败重试次数
 MAX_RETRIES = 1
 
+# DeepSeek 定价（元/千 token，deepseek-chat）
+PRICE_INPUT_PER_1K = 0.001
+PRICE_OUTPUT_PER_1K = 0.002
+
+
+def _estimate_cost(prompt_tokens: int, completion_tokens: int) -> str:
+    """估算调用成本（元）。"""
+    cost = prompt_tokens / 1000 * PRICE_INPUT_PER_1K + completion_tokens / 1000 * PRICE_OUTPUT_PER_1K
+    return f"{cost:.6f}"
+
 
 class AIClient:
     """DeepSeek 大模型调用客户端。
 
     从 config 读取 DEEPSEEK_API_KEY 与 DEEPSEEK_API_URL，使用 httpx.AsyncClient 异步调用。
+    每次调用记录 AiCallLog（token 消耗/耗时/成本）。
     """
 
     def __init__(self) -> None:
         self.api_key: str = settings.DEEPSEEK_API_KEY
         self.api_url: str = settings.DEEPSEEK_API_URL
         self.model: str = settings.DEEPSEEK_MODEL
+        # 调用上下文（供日志记录关联用，可空）
+        self.call_user_id: int | None = None
+        self.call_admin_id: int | None = None
+        self.call_endpoint: str = "translate"
+        self.call_mode: str | None = None
+
+    def _record_call_log(
+        self,
+        success: bool,
+        duration_ms: int,
+        usage: dict[str, Any] | None = None,
+        error_msg: str | None = None,
+        fallback_used: bool = False,
+    ) -> None:
+        """记录 AI 调用日志到 ai_call_logs 表（失败不影响主流程）。"""
+        try:
+            from core.database import SessionLocal
+            from models.admin import AiCallLog
+
+            usage = usage or {}
+            prompt_tokens = int(usage.get("prompt_tokens", 0))
+            completion_tokens = int(usage.get("completion_tokens", 0))
+            total_tokens = int(usage.get("total_tokens", prompt_tokens + completion_tokens))
+            db = SessionLocal()
+            try:
+                log = AiCallLog(
+                    admin_id=self.call_admin_id,
+                    user_id=self.call_user_id,
+                    endpoint=self.call_endpoint,
+                    mode=self.call_mode,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=total_tokens,
+                    duration_ms=duration_ms,
+                    success=success,
+                    fallback_used=fallback_used,
+                    error_msg=error_msg,
+                    cost_estimate=_estimate_cost(prompt_tokens, completion_tokens) if success else None,
+                )
+                db.add(log)
+                db.commit()
+            finally:
+                db.close()
+        except Exception as exc:  # 日志写入失败不影响主流程
+            logger.warning("AiCallLog 写入失败: %s", exc)
 
     async def chat(self, system_prompt: str, user_prompt: str) -> dict[str, Any]:
         """调用 DeepSeek Chat 接口并解析返回的 JSON 结果。
@@ -55,6 +112,7 @@ class AIClient:
             "stream": False,
         }
 
+        start = time.time()
         last_error: Exception | None = None
         # 含首次调用共 MAX_RETRIES + 1 次
         for attempt in range(MAX_RETRIES + 1):
@@ -64,6 +122,9 @@ class AIClient:
                     resp.raise_for_status()
                     data = resp.json()
                     content = data["choices"][0]["message"]["content"]
+                    usage = data.get("usage", {})
+                    duration_ms = int((time.time() - start) * 1000)
+                    self._record_call_log(success=True, duration_ms=duration_ms, usage=usage)
                     return self._parse_content(content)
             except (httpx.TimeoutException, httpx.HTTPError) as exc:
                 last_error = exc
@@ -72,6 +133,11 @@ class AIClient:
                 last_error = exc
                 logger.warning("AI 返回结构异常: %s", exc)
 
+        duration_ms = int((time.time() - start) * 1000)
+        self._record_call_log(
+            success=False, duration_ms=duration_ms,
+            error_msg=str(last_error)[:500] if last_error else "unknown",
+        )
         raise RuntimeError(f"AI 服务调用失败: {last_error}")
 
     async def translate(
