@@ -3,7 +3,7 @@
  * App.vue 中通过 @import 引入，作用于所有页面
  */
 
-@import './variables.scss';
+@import './tailwind.scss';
 @import './reset.scss';
 
 /* ============ 通用容器 ============ */
@@ -12,10 +12,11 @@
   background-color: $bg-page;
 }
 
+/* ============ 卡片 (浅色轻量) ============ */
 .card {
   background-color: $bg-card;
-  border-radius: $border-radius;
-  box-shadow: $shadow-base;
+  border-radius: $border-radius-lg;
+  box-shadow: $shadow-xs;
   padding: $spacing-md;
 }
 
@@ -25,6 +26,7 @@
 .text-warning { color: $color-warning; }
 .text-danger  { color: $color-danger; }
 .text-secondary { color: $text-secondary; }
+.text-tertiary { color: $text-tertiary; }
 .text-placeholder { color: $text-placeholder; }
 
 .text-sm { font-size: $font-size-sm; }
@@ -96,7 +98,7 @@
   transition: opacity 0.2s;
 }
 .btn-primary {
-  background-color: $color-primary;
+  background: $gradient-primary;
   color: #FFFFFF;
 }
 .btn-outline {
@@ -107,6 +109,22 @@
 .btn-disabled {
   opacity: 0.5;
   pointer-events: none;
+}
+
+/* ============ ChatUI 底部输入框 ============ */
+.chat-input {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: $spacing-sm;
+  padding: $spacing-sm $spacing-md;
+  padding-bottom: calc(#{$spacing-sm} + env(safe-area-inset-bottom, 0px));
+  background-color: $bg-card;
+  box-shadow: $shadow-input;
+  z-index: 50;
 }
 
 /* ============ 风险等级标签 ============ */

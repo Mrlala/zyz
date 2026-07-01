@@ -44,3 +44,7 @@ desktop.ini
 
 # TRAE 临时文件
 .trae/documents/
+
+# 设计稿目录（参考资源，非代码）
+zhongyizhong-chatui/
+zhongyizhong-ui-redesign/

@@ -1,75 +1,107 @@
 <template>
-  <view class="page dict-page">
-    <!-- 顶部自定义导航栏 -->
-    <view class="nav-bar" :style="{ paddingTop: statusBarHeight + 'px' }">
-      <view class="nav-bar__inner">
-        <text class="nav-bar__title">词条</text>
-        <view class="nav-bar__search" @click="goSearch">
-          <text class="nav-bar__search-icon">🔍</text>
-          <text class="nav-bar__search-placeholder">搜索词条</text>
+  <view class="dict-page">
+    <!-- 顶部栏 -->
+    <view class="top-bar" :style="{ paddingTop: statusBarHeight + 'px' }">
+      <view class="top-bar__inner">
+        <view class="top-bar__btn" @click="handleBack">
+          <ChevronLeft :size="20" color="#6B7280" />
+        </view>
+        <text class="top-bar__title">词库</text>
+        <view class="top-bar__btn top-bar__btn--sunken" @click="goSearch">
+          <Search :size="16" color="#6B7280" />
         </view>
       </view>
     </view>
-    <view class="nav-placeholder" :style="{ height: (statusBarHeight + 44) + 'px' }"></view>
+    <view class="top-bar-placeholder" :style="{ height: (statusBarHeight + 54) + 'px' }"></view>
 
-    <view class="dict-page__body">
-      <!-- 分类标签横向滚动 -->
-      <scroll-view scroll-x class="dict-page__categories" :show-scrollbar="false">
-        <view class="dict-page__category-list">
-          <view
-            class="dict-page__category-item"
-            :class="{ 'dict-page__category-item--active': activeCategoryId === 0 }"
-            @click="switchCategory(0)"
-          >全部</view>
-          <view
-            v-for="cat in categories"
-            :key="cat.id"
-            class="dict-page__category-item"
-            :class="{ 'dict-page__category-item--active': activeCategoryId === cat.id }"
-            @click="switchCategory(cat.id)"
-          >
-            {{ cat.name }}
-          </view>
-        </view>
-      </scroll-view>
+    <!-- 搜索栏 -->
+    <view class="search-bar" @click="goSearch">
+      <Search :size="15" color="#9CA3AF" />
+      <text class="search-bar__placeholder">搜索词条、释义或例句</text>
+    </view>
 
-      <!-- 排序条 -->
-      <view class="dict-page__sort">
+    <!-- 分类胶囊 -->
+    <scroll-view scroll-x class="category-scroll" :show-scrollbar="false">
+      <view class="category-scroll__list">
+        <view
+          class="category-pill"
+          :class="{ 'category-pill--active': activeCategoryId === 0 }"
+          @click="switchCategory(0)"
+        >全部</view>
+        <view
+          v-for="cat in categories"
+          :key="cat.id"
+          class="category-pill"
+          :class="{ 'category-pill--active': activeCategoryId === cat.id }"
+          @click="switchCategory(cat.id)"
+        >{{ cat.name }}</view>
+      </view>
+    </scroll-view>
+
+    <!-- 排序条 -->
+    <view class="sort-bar">
+      <view class="sort-bar__tabs">
         <view
           v-for="item in sortOptions"
           :key="item.value"
-          class="dict-page__sort-item"
-          :class="{ 'dict-page__sort-item--active': sort === item.value }"
+          class="sort-bar__tab"
+          :class="{ 'sort-bar__tab--active': sort === item.value }"
           @click="switchSort(item.value)"
         >{{ item.label }}</view>
-        <view class="dict-page__sort-extra" @click="goCategoryList">分类专区 ›</view>
+      </view>
+      <view class="sort-bar__extra" @click="goCategoryList">
+        <text>分类专区</text>
+        <ChevronRight :size="12" color="#FE2C55" />
+      </view>
+    </view>
+
+    <!-- 词条列表 -->
+    <view class="word-list">
+      <view
+        v-for="word in words"
+        :key="word.id"
+        class="word-card"
+        @click="goDetail(word)"
+      >
+        <view class="word-card__bar"></view>
+        <view class="word-card__body">
+          <view class="word-card__info">
+            <view class="word-card__title-row">
+              <text class="word-card__word">{{ word.word || word.name }}</text>
+              <text v-if="word.category_name || word.category" class="word-card__tag">{{ word.category_name || word.category }}</text>
+            </view>
+            <text class="word-card__definition">{{ word.definition || word.meaning || word.summary || '' }}</text>
+          </view>
+          <view class="word-card__fav" @click.stop="handleFavorite(word)">
+            <Heart
+              :size="18"
+              :color="word.is_favorited ? '#FE2C55' : '#D1D5DB'"
+              :fill="word.is_favorited ? '#FE2C55' : 'none'"
+            />
+          </view>
+        </view>
       </view>
 
-      <!-- 词条列表 -->
-      <view class="dict-page__list">
-        <WordCard
-          v-for="word in words"
-          :key="word.id"
-          :word="word"
-          @click="goDetail"
-          @favorite="handleFavorite"
-        />
+      <!-- 加载中 -->
+      <view v-if="loading && !words.length" class="state-tip">
+        <text>加载中...</text>
+      </view>
 
-        <!-- 空状态 -->
-        <EmptyState
-          v-if="!loading && words.length === 0"
-          icon="📚"
-          text="该分类下暂无词条"
-          btn-text="去其他分类看看"
-          @btnClick="switchCategory(0)"
-        />
+      <!-- 空状态 -->
+      <view v-if="!loading && !words.length" class="empty-state">
+        <view class="empty-state__icon">
+          <BookOpen :size="32" color="#9CA3AF" />
+        </view>
+        <text class="empty-state__text">该分类下暂无词条</text>
+        <text class="empty-state__sub">去其他分类看看</text>
+      </view>
 
-        <!-- 加载更多 -->
-        <LoadMore
-          v-if="words.length > 0"
-          :status="loadMoreStatus"
-          @loadMore="loadMore"
-        />
+      <!-- 加载更多 -->
+      <view v-if="words.length > 0 && words.length < total" class="load-more" @click="loadMore">
+        <text>{{ loading ? '加载中...' : '加载更多' }}</text>
+      </view>
+      <view v-if="words.length > 0 && words.length >= total" class="load-more load-more--end">
+        <text>没有更多了</text>
       </view>
     </view>
   </view>
@@ -78,9 +110,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad, onReachBottom, onPullDownRefresh } from '@dcloudio/uni-app'
-import WordCard from '@/components/word/WordCard.vue'
-import LoadMore from '@/components/common/LoadMore.vue'
-import EmptyState from '@/components/common/EmptyState.vue'
+import { ChevronLeft, Search, ChevronRight, Heart, BookOpen } from 'lucide-vue-next'
 import * as wordApi from '@/api/word'
 import * as categoryApi from '@/api/category'
 import { useUserStore } from '@/store/modules/user'
@@ -88,34 +118,20 @@ import { useUserStore } from '@/store/modules/user'
 const userStore = useUserStore()
 
 const statusBarHeight = ref(0)
-// 分类列表
 const categories = ref([])
-// 当前选中的分类 ID（0 表示全部）
 const activeCategoryId = ref(0)
-// 排序方式
 const sort = ref('hot')
-// 词条列表
 const words = ref([])
-// 分页
 const page = ref(1)
 const pageSize = 20
 const total = ref(0)
-// 加载状态
 const loading = ref(false)
 
-// 排序选项
 const sortOptions = [
   { label: '热门', value: 'hot' },
   { label: '最新', value: 'new' },
   { label: '名称', value: 'name' }
 ]
-
-// 加载更多组件状态
-const loadMoreStatus = computed(() => {
-  if (loading.value) return 'loading'
-  if (words.value.length >= total.value && words.value.length > 0) return 'noMore'
-  return 'more'
-})
 
 onLoad(() => {
   try {
@@ -128,30 +144,25 @@ onLoad(() => {
   fetchWords(true)
 })
 
-// 下拉刷新
 onPullDownRefresh(() => {
   fetchWords(true).finally(() => {
     uni.stopPullDownRefresh()
   })
 })
 
-// 上拉加载更多
 onReachBottom(() => {
   loadMore()
 })
 
-// 获取分类列表
 async function fetchCategories() {
   try {
     const list = await categoryApi.getCategories()
-    // 取一级分类，最多展示 12 个
     categories.value = (list || []).slice(0, 12)
   } catch (err) {
     console.error('获取分类失败', err)
   }
 }
 
-// 获取词条列表
 async function fetchWords(reset = false) {
   if (loading.value) return
   loading.value = true
@@ -160,11 +171,7 @@ async function fetchWords(reset = false) {
     words.value = []
   }
   try {
-    const params = {
-      page: page.value,
-      page_size: pageSize,
-      sort: sort.value
-    }
+    const params = { page: page.value, page_size: pageSize, sort: sort.value }
     if (activeCategoryId.value) {
       params.category_id = activeCategoryId.value
     }
@@ -179,28 +186,24 @@ async function fetchWords(reset = false) {
   }
 }
 
-// 加载更多
 function loadMore() {
   if (loading.value || words.value.length >= total.value) return
   page.value++
   fetchWords(false)
 }
 
-// 切换分类
 function switchCategory(id) {
   if (activeCategoryId.value === id) return
   activeCategoryId.value = id
   fetchWords(true)
 }
 
-// 切换排序
 function switchSort(value) {
   if (sort.value === value) return
   sort.value = value
   fetchWords(true)
 }
 
-// 收藏/取消收藏
 async function handleFavorite(word) {
   const id = word.id || word.word_id
   if (!id) return
@@ -210,7 +213,6 @@ async function handleFavorite(word) {
       title: userStore.isFavorited(id) ? '已收藏' : '已取消收藏',
       icon: 'none'
     })
-    // 局部更新卡片收藏态
     const target = words.value.find((w) => w.id === id)
     if (target) {
       target.is_favorited = userStore.isFavorited(id)
@@ -220,7 +222,6 @@ async function handleFavorite(word) {
   }
 }
 
-// 跳转词条详情
 function goDetail(word) {
   const id = word.id || word.word_id
   if (id) {
@@ -228,141 +229,275 @@ function goDetail(word) {
   }
 }
 
-// 跳转搜索页
 function goSearch() {
   uni.navigateTo({ url: '/pages/dict/search' })
 }
 
-// 跳转分类专区
 function goCategoryList() {
   uni.navigateTo({ url: `/pages/dict/category?id=${activeCategoryId.value}` })
+}
+
+function handleBack() {
+  uni.navigateBack({ delta: 1 })
 }
 </script>
 
 <style lang="scss" scoped>
 .dict-page {
   min-height: 100vh;
-  background-color: $uni-bg-color;
+  background-color: $bg-page;
+}
 
-  .nav-bar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 100;
-    background-color: #FFFFFF;
-    box-shadow: $uni-box-shadow;
+/* ============ 顶部栏 ============ */
+.top-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  background-color: $bg-page;
 
-    &__inner {
-      height: 88rpx;
-      display: flex;
-      align-items: center;
-      padding: 0 $uni-spacing-row-base;
-      gap: $uni-spacing-row-base;
+  &__inner {
+    height: 54px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+  }
+
+  &__btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &--sunken {
+      background-color: $bg-sunken;
+      border-radius: 50%;
     }
+  }
 
-    &__title {
-      font-size: $uni-font-size-title;
-      font-weight: 700;
-      color: $uni-text-color;
-    }
+  &__title {
+    font-size: 16px;
+    font-weight: 600;
+    color: $text-primary;
+  }
+}
 
-    &__search {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      height: 56rpx;
-      padding: 0 $uni-spacing-row-base;
-      background-color: $uni-bg-color;
-      border-radius: 999rpx;
-    }
+.top-bar-placeholder {
+  width: 100%;
+}
 
-    &__search-icon {
-      font-size: $uni-font-size-base;
-      margin-right: $uni-spacing-row-sm;
-    }
+/* ============ 搜索栏 ============ */
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  margin: 12px 16px 8px;
+  padding: 0 12px;
+  background-color: $bg-sunken;
+  border-radius: 10px;
 
-    &__search-placeholder {
-      font-size: $uni-font-size-sm;
-      color: $uni-text-color-placeholder;
+  &__placeholder {
+    font-size: 13px;
+    color: $text-tertiary;
+  }
+}
+
+/* ============ 分类胶囊 ============ */
+.category-scroll {
+  white-space: nowrap;
+  padding: 8px 16px;
+
+  &__list {
+    display: inline-flex;
+    gap: 8px;
+  }
+}
+
+.category-pill {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 500;
+  background-color: $bg-card;
+  color: $text-secondary;
+  border: 1px solid $border-color;
+  white-space: nowrap;
+
+  &--active {
+    background-color: $color-primary;
+    color: #FFFFFF;
+    border-color: $color-primary;
+  }
+}
+
+/* ============ 排序条 ============ */
+.sort-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+
+  &__tabs {
+    display: flex;
+    gap: 16px;
+  }
+
+  &__tab {
+    font-size: 13px;
+    color: $text-secondary;
+    padding-bottom: 2px;
+    border-bottom: 2px solid transparent;
+
+    &--active {
+      color: $text-primary;
+      font-weight: 500;
+      border-bottom-color: $color-primary;
     }
+  }
+
+  &__extra {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 12px;
+    font-weight: 500;
+    color: $color-primary;
+  }
+}
+
+/* ============ 词条列表 ============ */
+.word-list {
+  padding: 8px 16px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.word-card {
+  display: flex;
+  border-radius: 12px;
+  overflow: hidden;
+  background-color: $bg-card;
+  box-shadow: $shadow-xs;
+
+  &__bar {
+    width: 3px;
+    flex-shrink: 0;
+    background: linear-gradient(180deg, #FE2C55, #25F4EE);
   }
 
   &__body {
-    padding: $uni-spacing-col-sm $uni-spacing-row-base;
-    padding-bottom: 60rpx;
+    flex: 1;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 14px 16px;
+    min-width: 0;
   }
 
-  // 分类标签
-  &__categories {
-    white-space: nowrap;
-    margin-bottom: $uni-spacing-col-sm;
+  &__info {
+    flex: 1;
+    min-width: 0;
   }
 
-  &__category-list {
-    display: inline-flex;
-    gap: $uni-spacing-row-sm;
-    padding: 4rpx 0;
-  }
-
-  &__category-item {
-    display: inline-block;
-    padding: 12rpx $uni-spacing-row-base;
-    background-color: #FFFFFF;
-    border-radius: 999rpx;
-    font-size: $uni-font-size-sm;
-    color: $uni-text-color-grey;
-    flex-shrink: 0;
-
-    &--active {
-      background-color: $uni-color-primary;
-      color: #FFFFFF;
-      font-weight: 600;
-    }
-  }
-
-  // 排序条
-  &__sort {
+  &__title-row {
     display: flex;
     align-items: center;
-    padding: $uni-spacing-col-sm 0;
-    border-bottom: 2rpx solid $uni-border-color;
-    margin-bottom: $uni-spacing-col-sm;
+    gap: 8px;
   }
 
-  &__sort-item {
-    margin-right: $uni-spacing-row-lg;
-    font-size: $uni-font-size-sm;
-    color: $uni-text-color-grey;
-
-    &--active {
-      color: $uni-text-color;
-      font-weight: 600;
-      position: relative;
-
-      &::after {
-        content: '';
-        position: absolute;
-        left: 50%;
-        bottom: -10rpx;
-        transform: translateX(-50%);
-        width: 32rpx;
-        height: 4rpx;
-        background-color: $uni-color-primary;
-        border-radius: 2rpx;
-      }
-    }
+  &__word {
+    font-size: 16px;
+    font-weight: 600;
+    color: $text-primary;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  &__sort-extra {
-    margin-left: auto;
-    font-size: $uni-font-size-sm;
-    color: $uni-color-primary;
+  &__tag {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    font-size: 10px;
+    background-color: $bg-sunken;
+    color: $text-tertiary;
+    white-space: nowrap;
   }
 
-  // 词条列表
-  &__list {
-    padding-top: $uni-spacing-col-sm;
+  &__definition {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    margin-top: 6px;
+    font-size: 13px;
+    color: $text-secondary;
+    line-height: 1.5;
+  }
+
+  &__fav {
+    flex-shrink: 0;
+    margin-left: 12px;
+    margin-top: 2px;
+    padding: 4px;
+  }
+}
+
+/* ============ 状态提示 ============ */
+.state-tip {
+  padding: 48px 0;
+  text-align: center;
+  font-size: 14px;
+  color: $text-secondary;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 64px 0;
+
+  &__icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background-color: $bg-sunken;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+  }
+
+  &__text {
+    font-size: 14px;
+    color: $text-secondary;
+    margin-bottom: 4px;
+  }
+
+  &__sub {
+    font-size: 12px;
+    color: $text-tertiary;
+  }
+}
+
+.load-more {
+  text-align: center;
+  padding: 16px 0;
+  font-size: 12px;
+  color: $text-tertiary;
+
+  &--end {
+    color: $text-tertiary;
   }
 }
 </style>

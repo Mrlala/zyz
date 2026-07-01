@@ -14,8 +14,8 @@ const HISTORY_KEY = 'zyz_translate_history'
 const MAX_HISTORY = 20
 
 export const useTranslateStore = defineStore('translate', () => {
-  // 当前翻译模式：translate / dict
-  const mode = ref('translate')
+  // 当前翻译模式：quick(快速解析) / deep(深度解析) / dict(词典)
+  const mode = ref('quick')
   // 当前翻译结果
   const currentResult = ref(null)
   // 翻译历史（最多 20 条）
@@ -28,10 +28,10 @@ export const useTranslateStore = defineStore('translate', () => {
 
   /**
    * 切换翻译模式
-   * @param {string} m translate / dict
+   * @param {string} m quick / deep / dict
    */
   function setMode(m) {
-    if (m !== 'translate' && m !== 'dict') return
+    if (m !== 'quick' && m !== 'deep' && m !== 'dict') return
     mode.value = m
     storage.set(MODE_KEY, m)
   }
@@ -46,9 +46,11 @@ export const useTranslateStore = defineStore('translate', () => {
     if (!text || !text.trim()) {
       throw new Error('请输入待翻译文本')
     }
+    // 前端三态映射到后端两态：quick/deep → translate，dict → dict
+    const apiMode = useMode === 'dict' ? 'dict' : 'translate'
     isLoading.value = true
     try {
-      const result = await translateApi.translate(text, useMode)
+      const result = await translateApi.translate(text, apiMode)
       currentResult.value = {
         original_text: text,
         mode: useMode,

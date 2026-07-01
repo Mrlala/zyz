@@ -1,0 +1,9 @@
+/**
+ * Tailwind CSS v3 入口
+ * 通过 index.scss 引入，作用于所有页面
+ * 注意：preflight 已在 tailwind.config.js 中禁用，避免与 uni-app 组件样式冲突
+ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
