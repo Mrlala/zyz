@@ -195,7 +195,15 @@ function reviewTagType(s: string): any {
   return { pending: 'warning', approved: 'success', rejected: 'danger' }[s] || 'info'
 }
 function correctionTypeLabel(t: string) {
-  return { meaning_wrong: '释义错误', example_wrong: '示例错误', outdated: '过时', other: '其他' }[t] || t
+  return {
+    meaning_wrong: '释义错误',
+    example_wrong: '例句/出处错误',
+    pinyin_wrong: '拼音错误',
+    category_wrong: '分类错误',
+    risk_wrong: '风险标注错误',
+    outdated: '已过时',
+    other: '其他',
+  }[t] || t
 }
 
 function openReviewSubmission(row: any, action: string) {

@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from models.category import Category
 from models.submission import CorrectionReport
-from models.word import Word, WordAlias, WordContext, WordRelation
+from models.word import Word, WordAlias, WordContext, WordRelation, WordEvolution, WordScene
 
 
 class WordService:
@@ -117,6 +117,26 @@ class WordService:
         )
         # 分类
         category = db.get(Category, word.category_id) if word.category_id else None
+        # 演化历程
+        evolutions = (
+            db.execute(
+                select(WordEvolution)
+                .where(WordEvolution.word_id == word_id)
+                .order_by(WordEvolution.sort_order)
+            )
+            .scalars()
+            .all()
+        )
+        # 相关场景
+        scenes = (
+            db.execute(
+                select(WordScene)
+                .where(WordScene.word_id == word_id)
+                .order_by(WordScene.sort_order)
+            )
+            .scalars()
+            .all()
+        )
         # 相关词条（通过 word_relations 关联）
         related_ids = (
             db.execute(
@@ -157,6 +177,7 @@ class WordService:
             "pinyin": word.pinyin,
             "meaning": word.meaning,
             "example": word.example,
+            "origin": word.origin,
             "category_id": word.category_id,
             "category_name": category.name if category else None,
             "risk_level": word.risk_level,
@@ -176,6 +197,24 @@ class WordService:
                     "sort_order": ctx.sort_order,
                 }
                 for ctx in contexts
+            ],
+            "evolutions": [
+                {
+                    "id": ev.id,
+                    "period": ev.period,
+                    "meaning": ev.meaning,
+                    "sort_order": ev.sort_order,
+                }
+                for ev in evolutions
+            ],
+            "scenes": [
+                {
+                    "id": sc.id,
+                    "scene_name": sc.scene_name,
+                    "example": sc.example,
+                    "sort_order": sc.sort_order,
+                }
+                for sc in scenes
             ],
             "aliases": list(aliases),
             "related": related,
@@ -229,7 +268,7 @@ class WordService:
         """提交词条纠错报告。
 
         :param word_id: 被纠错词条 ID
-        :param type: 纠错类型 meaning_wrong/example_wrong/outdated/other
+        :param type: 纠错类型 meaning_wrong/example_wrong/pinyin_wrong/category_wrong/risk_wrong/outdated/other
         :param content: 纠错内容说明
         :param user_id: 提交者 ID
         :param db: 数据库会话
@@ -240,7 +279,11 @@ class WordService:
         if word is None or word.deleted_at is not None:
             raise ValueError("词条不存在")
 
-        if type not in ("meaning_wrong", "example_wrong", "outdated", "other"):
+        allowed = (
+            "meaning_wrong", "example_wrong", "pinyin_wrong",
+            "category_wrong", "risk_wrong", "outdated", "other",
+        )
+        if type not in allowed:
             raise ValueError("纠错类型非法")
 
         report = CorrectionReport(

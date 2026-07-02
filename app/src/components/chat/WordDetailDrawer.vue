@@ -32,6 +32,15 @@
         <view class="word-drawer__section-body">{{ detail.definition || detail.meaning || '' }}</view>
       </view>
 
+      <!-- 词源 -->
+      <view v-if="detail.origin" class="word-drawer__section">
+        <view class="word-drawer__section-title">
+          <Sparkles :size="14" color="#9CA3AF" />
+          <text>词源</text>
+        </view>
+        <view class="word-drawer__section-body">{{ detail.origin }}</view>
+      </view>
+
       <!-- 出处/示例 -->
       <view v-if="detail.example" class="word-drawer__section">
         <view class="word-drawer__section-title">
@@ -50,6 +59,37 @@
         <view v-for="ctx in detail.contexts" :key="ctx.id" class="word-drawer__ctx-item">
           <text class="word-drawer__ctx-name">{{ ctx.context_name }}</text>
           <text class="word-drawer__ctx-meaning">{{ ctx.meaning }}</text>
+        </view>
+      </view>
+
+      <!-- 演化历程 -->
+      <view v-if="detail.evolutions && detail.evolutions.length" class="word-drawer__section">
+        <view class="word-drawer__section-title">
+          <TrendingUp :size="14" color="#9CA3AF" />
+          <text>演化历程</text>
+        </view>
+        <view class="word-drawer__timeline">
+          <view v-for="ev in detail.evolutions" :key="ev.id" class="word-drawer__timeline-item">
+            <view class="word-drawer__timeline-dot"></view>
+            <view class="word-drawer__timeline-content">
+              <text class="word-drawer__timeline-period">{{ ev.period }}</text>
+              <text class="word-drawer__timeline-meaning">{{ ev.meaning }}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 相关场景 -->
+      <view v-if="detail.scenes && detail.scenes.length" class="word-drawer__section">
+        <view class="word-drawer__section-title">
+          <Compass :size="14" color="#9CA3AF" />
+          <text>相关场景</text>
+        </view>
+        <view class="word-drawer__scene-list">
+          <view v-for="sc in detail.scenes" :key="sc.id" class="word-drawer__scene-item">
+            <text class="word-drawer__scene-name">{{ sc.scene_name }}</text>
+            <text v-if="sc.example" class="word-drawer__scene-example">{{ sc.example }}</text>
+          </view>
         </view>
       </view>
 
@@ -95,10 +135,22 @@
         </view>
       </view>
 
-      <!-- 底部统计 -->
-      <view class="word-drawer__stats">
-        <text>{{ detail.view_count || 0 }} 浏览</text>
-        <text>{{ detail.favorite_count || 0 }} 收藏</text>
+      <!-- 使用频率 -->
+      <view class="word-drawer__section">
+        <view class="word-drawer__section-title">
+          <BarChart :size="14" color="#9CA3AF" />
+          <text>使用频率</text>
+        </view>
+        <view class="word-drawer__usage">
+          <view class="word-drawer__usage-num">
+            <text class="word-drawer__usage-value">{{ detail.view_count || 0 }}</text>
+            <text class="word-drawer__usage-label">次浏览</text>
+          </view>
+          <view class="word-drawer__usage-meta">
+            <text>收藏 {{ detail.favorite_count || 0 }} 次</text>
+            <text>投票 {{ detail.vote_count || 0 }} 分</text>
+          </view>
+        </view>
       </view>
     </scroll-view>
 
@@ -129,7 +181,7 @@
 import { ref, watch, computed } from 'vue'
 import {
   X, BookOpen, Quote, Layers, Tag, ShieldAlert, Hash,
-  Heart, AlertCircle
+  Heart, AlertCircle, Sparkles, TrendingUp, Compass, BarChart
 } from 'lucide-vue-next'
 import * as wordApi from '@/api/word'
 import * as correctionApi from '@/api/correction'
@@ -225,15 +277,23 @@ function handleCorrect() {
   if (!detail.value) return
   const wordId = detail.value.id
   const wordText = detail.value.word
+  const correctionTypes = [
+    { label: '释义错误', value: 'meaning_wrong' },
+    { label: '例句/出处错误', value: 'example_wrong' },
+    { label: '拼音错误', value: 'pinyin_wrong' },
+    { label: '分类错误', value: 'category_wrong' },
+    { label: '风险标注错误', value: 'risk_wrong' },
+    { label: '已过时', value: 'outdated' },
+    { label: '其他', value: 'other' }
+  ]
   uni.showActionSheet({
-    itemList: ['释义错误', '例句错误', '已过时', '其他'],
+    itemList: correctionTypes.map(t => t.label),
     success: (res) => {
-      const types = ['meaning_wrong', 'example_wrong', 'outdated', 'other']
-      const type = types[res.tapIndex]
+      const type = correctionTypes[res.tapIndex].value
       uni.showModal({
         title: `纠错：${wordText}`,
         editable: true,
-        placeholderText: '请描述正确的释义或问题',
+        placeholderText: '请描述正确的内容或问题',
         success: (r) => {
           if (r.confirm && r.content) {
             correctionApi.submitCorrection({
@@ -308,9 +368,10 @@ function handleRelatedClick(item) {
 
   &__header {
     position: relative;
-    padding: 20px 0 16px;
-    border-bottom: 1px solid $border-color-light;
+    padding: 20px 16px 16px;
     margin-bottom: 16px;
+    border-bottom: 1px solid $border-color-light;
+    background-image: linear-gradient(135deg, rgba(254, 44, 85, 0.04), transparent);
   }
 
   &__title-row {
@@ -367,7 +428,11 @@ function handleRelatedClick(item) {
   }
 
   &__section {
-    margin-bottom: 20px;
+    background-color: $bg-card;
+    border-radius: 12px;
+    padding: 14px;
+    box-shadow: $shadow-xs;
+    margin-bottom: 12px;
   }
 
   &__section-title {
@@ -477,6 +542,120 @@ function handleRelatedClick(item) {
     font-size: 12px;
     color: $text-tertiary;
     border-top: 1px solid $border-color-light;
+  }
+
+  /* ============ 演化历程时间线 ============ */
+  &__timeline {
+    position: relative;
+    padding-left: 16px;
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: 3px;
+      top: 8px;
+      bottom: 8px;
+      width: 1px;
+      background-color: $border-color-light;
+    }
+  }
+
+  &__timeline-item {
+    position: relative;
+    padding: 8px 0;
+
+    &:not(:last-child) {
+      border-bottom: 1px solid $border-color-light;
+    }
+  }
+
+  &__timeline-dot {
+    position: absolute;
+    left: -16px;
+    top: 14px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: $color-primary;
+    border: 2px solid $bg-card;
+  }
+
+  &__timeline-content {
+    padding-left: 4px;
+  }
+
+  &__timeline-period {
+    display: block;
+    font-size: 12px;
+    color: $color-primary;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  &__timeline-meaning {
+    display: block;
+    font-size: 13px;
+    color: $text-secondary;
+    line-height: 1.5;
+  }
+
+  /* ============ 相关场景 ============ */
+  &__scene-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  &__scene-item {
+    padding: 10px 12px;
+    background-color: $bg-sunken;
+    border-radius: 8px;
+  }
+
+  &__scene-name {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: $color-primary;
+    margin-bottom: 4px;
+  }
+
+  &__scene-example {
+    display: block;
+    font-size: 12px;
+    color: $text-secondary;
+    line-height: 1.5;
+  }
+
+  /* ============ 使用频率 ============ */
+  &__usage {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  &__usage-num {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+  }
+
+  &__usage-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: $color-primary;
+  }
+
+  &__usage-label {
+    font-size: 12px;
+    color: $text-tertiary;
+  }
+
+  &__usage-meta {
+    display: flex;
+    gap: 12px;
+    font-size: 12px;
+    color: $text-secondary;
   }
 
   &__footer {

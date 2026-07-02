@@ -16,14 +16,13 @@
     <scroll-view
       scroll-y
       class="chat-body"
-      :style="{ height: 'calc(100vh - ' + (statusBarHeight + 54) + 'px - 72px)' }"
+      :style="{ height: 'calc(100vh - ' + (statusBarHeight + 54) + 'px)', marginTop: (statusBarHeight + 54) + 'px', padding: '16px', paddingBottom: '100px' }"
       :scroll-into-view="scrollAnchor"
     >
       <!-- 空状态：当前会话无消息 -->
       <view
         v-if="translateStore.isEmpty"
         class="chat-empty"
-        :style="{ minHeight: 'calc(100vh - ' + (statusBarHeight + 54 + 72) + 'px - 32px)' }"
       >
         <view class="chat-empty__center">
           <view class="chat-empty__title">中译中</view>
@@ -326,9 +325,12 @@ async function handleTranslate() {
 function handleKeywordClick(kw) {
   const id = kw?.word_id || kw?.id
   if (!id) {
-    // 无 word_id（可能是 ai_temp 词条），降级为填入输入框翻译
-    inputText.value = kw?.word || ''
-    if (inputText.value) handleTranslate()
+    // AI 临时生成的词条，无 word_id，提示而非触发翻译
+    uni.showToast({
+      title: '该词条为 AI 临时生成，暂不支持查看详情',
+      icon: 'none',
+      duration: 2000
+    })
     return
   }
   currentWordId.value = id
@@ -363,15 +365,23 @@ function handleKeywordCorrect(kw) {
     return
   }
   const wordText = kw?.word || ''
+  const correctionTypes = [
+    { label: '释义错误', value: 'meaning_wrong' },
+    { label: '例句/出处错误', value: 'example_wrong' },
+    { label: '拼音错误', value: 'pinyin_wrong' },
+    { label: '分类错误', value: 'category_wrong' },
+    { label: '风险标注错误', value: 'risk_wrong' },
+    { label: '已过时', value: 'outdated' },
+    { label: '其他', value: 'other' }
+  ]
   uni.showActionSheet({
-    itemList: ['释义错误', '例句错误', '已过时', '其他'],
+    itemList: correctionTypes.map(t => t.label),
     success: (res) => {
-      const types = ['meaning_wrong', 'example_wrong', 'outdated', 'other']
-      const type = types[res.tapIndex]
+      const type = correctionTypes[res.tapIndex].value
       uni.showModal({
         title: `纠错：${wordText}`,
         editable: true,
-        placeholderText: '请描述正确的释义或问题',
+        placeholderText: '请描述正确的内容或问题',
         success: (r) => {
           if (r.confirm && r.content) {
             correctionApi.submitCorrection({
@@ -523,7 +533,8 @@ function formatMsgTime(ts) {
 
 <style lang="scss" scoped>
 .chat-page {
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   background-color: $bg-page;
   display: flex;
   flex-direction: column;
@@ -531,6 +542,11 @@ function formatMsgTime(ts) {
 
 /* ============ 顶部栏 ============ */
 .chat-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
   background-color: $bg-card;
   flex-shrink: 0;
 
@@ -559,7 +575,8 @@ function formatMsgTime(ts) {
 /* ============ 主内容区 ============ */
 .chat-body {
   flex: 1;
-  padding: 16px;
+  padding-left: 16px;
+  padding-right: 16px;
   box-sizing: border-box;
 
   &__anchor {
@@ -569,6 +586,7 @@ function formatMsgTime(ts) {
 
 /* ============ 空状态 ============ */
 .chat-empty {
+  min-height: 100%;
   display: flex;
   flex-direction: column;
   justify-content: space-between;

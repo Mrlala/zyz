@@ -16,6 +16,7 @@ from __future__ import annotations
 from sqlalchemy import (
     Boolean,
     Column,
+    DateTime,
     ForeignKey,
     Integer,
     String,
@@ -44,6 +45,8 @@ class AdminAccount(BaseModel):
     last_login_at = Column(String(30), nullable=True, comment="最近登录时间 ISO")
     last_login_ip = Column(String(45), nullable=True, comment="最近登录 IP")
     must_change_password = Column(Boolean, nullable=False, default=False, comment="是否需强制改密")
+    failed_login_count = Column(Integer, nullable=False, default=0, comment="连续登录失败次数")
+    locked_until = Column(DateTime, nullable=True, comment="锁定截止时间，NULL 表示未锁定")
     created_by = Column(Integer, nullable=True, comment="创建者 admin_id")
 
     role = relationship("Role", lazy="joined")

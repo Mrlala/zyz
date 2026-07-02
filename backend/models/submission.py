@@ -26,7 +26,8 @@ class Submission(Base):
     __tablename__ = "submissions"
 
     id = Column(Integer, primary_key=True, autoincrement=True, comment="主键")
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, comment="提交者")
+    # user_id 改为可空：AI 候选词频次达标后系统自动转提交，无用户提交者
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, comment="提交者（系统提交时为空）")
     word = Column(String(100), nullable=False, comment="词条名称")
     meaning = Column(Text, nullable=False, comment="释义")
     example = Column(Text, nullable=True, comment="示例")
@@ -72,7 +73,7 @@ class CorrectionReport(Base):
     type = Column(
         String(20),
         nullable=False,
-        comment="类型：meaning_wrong/example_wrong/outdated/other",
+        comment="类型：meaning_wrong/example_wrong/pinyin_wrong/category_wrong/risk_wrong/outdated/other",
     )
     content = Column(Text, nullable=False, comment="纠错内容说明")
     status = Column(

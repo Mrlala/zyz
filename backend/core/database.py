@@ -67,6 +67,15 @@ def _run_migrations() -> None:
         ("correction_reports", "reviewed_at", "DATETIME"),
         ("correction_reports", "review_comment", "TEXT"),
         ("words", "created_by_admin_id", "INTEGER"),
+        # 词条详情升级：增加词源字段
+        ("words", "origin", "TEXT"),
+        # 翻译历史隐私保护：增加原文哈希字段，用于后台统计而不暴露原文
+        ("translations", "original_text_hash", "VARCHAR(64)"),
+        # 登录失败锁定：记录失败次数和锁定截止时间
+        ("admin_accounts", "failed_login_count", "INTEGER DEFAULT 0"),
+        ("admin_accounts", "locked_until", "DATETIME"),
+        ("users", "failed_login_count", "INTEGER DEFAULT 0"),
+        ("users", "locked_until", "DATETIME"),
     ]
     inspector = inspect(engine)
     for table_name, column_name, column_def in migrations:

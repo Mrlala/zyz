@@ -47,6 +47,7 @@ class Word(BaseModel):
         default="database",
         comment="来源：database/manual/ai",
     )
+    origin = Column(Text, nullable=True, comment="词源/出处说明（如源自某事件、某年网络流行）")
     status = Column(
         String(10),
         nullable=False,
@@ -138,3 +139,31 @@ class WordRelation(Base):
             name="uk_word_relations",
         ),
     )
+
+
+class WordEvolution(Base):
+    """词条演化历程表，记录词条在不同时期的含义变迁。"""
+
+    __tablename__ = "word_evolutions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True, comment="主键")
+    word_id = Column(Integer, ForeignKey("words.id"), nullable=False, comment="所属词条")
+    period = Column(String(50), nullable=False, comment="时期标签：如 '2020年' / '早期' / '当下'")
+    meaning = Column(Text, nullable=False, comment="该时期的释义")
+    sort_order = Column(Integer, nullable=False, default=0, comment="展示排序（由远及近）")
+
+    __table_args__ = (Index("idx_word_evolutions_word_id", "word_id"),)
+
+
+class WordScene(Base):
+    """词条使用场景表，记录词条典型出现的场景（如直播、职场、社交等）。"""
+
+    __tablename__ = "word_scenes"
+
+    id = Column(Integer, primary_key=True, autoincrement=True, comment="主键")
+    word_id = Column(Integer, ForeignKey("words.id"), nullable=False, comment="所属词条")
+    scene_name = Column(String(50), nullable=False, comment="场景名称：如 '直播电商' / '职场沟通'")
+    example = Column(Text, nullable=True, comment="该场景下的典型用例")
+    sort_order = Column(Integer, nullable=False, default=0, comment="展示排序")
+
+    __table_args__ = (Index("idx_word_scenes_word_id", "word_id"),)
