@@ -13,6 +13,7 @@ from typing import Any
 import httpx
 
 from config import settings
+from services.ai.deepseek_api import estimate_cost as _estimate_cost_by_model
 from services.ai.prompts import BUILD_TRANSLATE_PROMPT
 
 logger = logging.getLogger(__name__)
@@ -22,15 +23,12 @@ REQUEST_TIMEOUT = 30
 # 失败重试次数
 MAX_RETRIES = 1
 
-# DeepSeek 定价（元/千 token，deepseek-chat）
-PRICE_INPUT_PER_1K = 0.001
-PRICE_OUTPUT_PER_1K = 0.002
+# 余额不足的 HTTP 状态码（DeepSeek 官方用 402 Payment Required）
+INSUFFICIENT_BALANCE_STATUS = 402
 
 
-def _estimate_cost(prompt_tokens: int, completion_tokens: int) -> str:
-    """估算调用成本（元）。"""
-    cost = prompt_tokens / 1000 * PRICE_INPUT_PER_1K + completion_tokens / 1000 * PRICE_OUTPUT_PER_1K
-    return f"{cost:.6f}"
+class InsufficientBalanceError(RuntimeError):
+    """DeepSeek 账户余额不足，需触发降级到词库模式。"""
 
 
 class AIClient:
@@ -95,8 +93,12 @@ class AIClient:
         usage: dict[str, Any] | None = None,
         error_msg: str | None = None,
         fallback_used: bool = False,
+        model: str | None = None,
     ) -> None:
-        """记录 AI 调用日志到 ai_call_logs 表（失败不影响主流程）。"""
+        """记录 AI 调用日志到 ai_call_logs 表（失败不影响主流程）。
+
+        使用动态定价表按实际使用的 model 估算成本，区分缓存命中/未命中 token。
+        """
         try:
             from core.database import SessionLocal
             from models.admin import AiCallLog
@@ -105,6 +107,9 @@ class AIClient:
             prompt_tokens = int(usage.get("prompt_tokens", 0))
             completion_tokens = int(usage.get("completion_tokens", 0))
             total_tokens = int(usage.get("total_tokens", prompt_tokens + completion_tokens))
+            # DeepSeek 返回的缓存命中 token 数（字段名 prompt_cache_hit_tokens）
+            cached_tokens = int(usage.get("prompt_cache_hit_tokens", 0))
+            cost_model = model or self.model
             db = SessionLocal()
             try:
                 log = AiCallLog(
@@ -119,7 +124,13 @@ class AIClient:
                     success=success,
                     fallback_used=fallback_used,
                     error_msg=error_msg,
-                    cost_estimate=_estimate_cost(prompt_tokens, completion_tokens) if success else None,
+                    cost_estimate=(
+                        _estimate_cost_by_model(
+                            cost_model, prompt_tokens, completion_tokens, cached_tokens
+                        )
+                        if success
+                        else None
+                    ),
                 )
                 db.add(log)
                 db.commit()
@@ -128,23 +139,33 @@ class AIClient:
         except Exception as exc:  # 日志写入失败不影响主流程
             logger.warning("AiCallLog 写入失败: %s", exc)
 
-    async def chat(self, system_prompt: str, user_prompt: str) -> dict[str, Any]:
+    async def chat(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        model_override: str | None = None,
+    ) -> dict[str, Any]:
         """调用 DeepSeek Chat 接口并解析返回的 JSON 结果。
 
         :param system_prompt: 系统提示词
         :param user_prompt: 用户提示词
+        :param model_override: 场景化模型覆盖（如风险复审用 deepseek-v4-pro），
+                               为 None 时使用当前配置的默认 model
         :return: 解析后的 JSON 字典
         :raises RuntimeError: 调用失败或 JSON 解析失败时抛出
+        :raises InsufficientBalanceError: 余额不足（HTTP 402）时抛出，由上层触发降级
         """
         # 每次调用前从数据库刷新配置，确保后台修改即时生效
         self._load_config()
+        # 场景化模型路由：覆盖默认 model
+        use_model = model_override or self.model
 
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
         payload: dict[str, Any] = {
-            "model": self.model,
+            "model": use_model,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
@@ -162,13 +183,30 @@ class AIClient:
             try:
                 async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
                     resp = await client.post(self.api_url, headers=headers, json=payload)
+                    # 余额不足（402）不重试，直接抛 InsufficientBalanceError 由上层降级
+                    if resp.status_code == INSUFFICIENT_BALANCE_STATUS:
+                        duration_ms = int((time.time() - start) * 1000)
+                        err_msg = self._extract_balance_error(resp)
+                        self._record_call_log(
+                            success=False,
+                            duration_ms=duration_ms,
+                            error_msg=err_msg,
+                            fallback_used=True,
+                            model=use_model,
+                        )
+                        raise InsufficientBalanceError(err_msg)
                     resp.raise_for_status()
                     data = resp.json()
                     content = data["choices"][0]["message"]["content"]
                     usage = data.get("usage", {})
                     duration_ms = int((time.time() - start) * 1000)
-                    self._record_call_log(success=True, duration_ms=duration_ms, usage=usage)
+                    self._record_call_log(
+                        success=True, duration_ms=duration_ms, usage=usage, model=use_model
+                    )
                     return self._parse_content(content)
+            except InsufficientBalanceError:
+                # 余额不足直接向上抛，由翻译引擎触发降级
+                raise
             except (httpx.TimeoutException, httpx.HTTPError) as exc:
                 last_error = exc
                 logger.warning("AI 调用失败（第 %d 次）: %s", attempt + 1, exc)
@@ -180,20 +218,56 @@ class AIClient:
         self._record_call_log(
             success=False, duration_ms=duration_ms,
             error_msg=str(last_error)[:500] if last_error else "unknown",
+            model=use_model,
         )
         raise RuntimeError(f"AI 服务调用失败: {last_error}")
+
+    @staticmethod
+    def _extract_balance_error(resp: httpx.Response) -> str:
+        """从 402 响应中提取错误信息。"""
+        try:
+            data = resp.json()
+            err = data.get("error", {})
+            msg = err.get("message") if isinstance(err, dict) else str(err)
+            return f"余额不足（402）: {msg or 'Insufficient Balance'}"
+        except Exception:
+            return f"余额不足（402）: {resp.text[:200]}"
 
     async def translate(
         self, text: str, matched_words: list[dict[str, Any]]
     ) -> dict[str, Any]:
         """翻译入口：构建 Prompt 并调用大模型，返回结构化结果。
 
+        翻译场景默认使用当前配置的 model（推荐 deepseek-v4-flash，低成本高并发）。
+
         :param text: 待翻译原文
         :param matched_words: 关键词匹配器命中的词库词条列表
         :return: AI 结构化结果字典
         """
         system_prompt, user_prompt = BUILD_TRANSLATE_PROMPT(text, matched_words)
+        # 翻译场景用默认 model（flash），不传 model_override
         return await self.chat(system_prompt, user_prompt)
+
+    async def risk_review(
+        self, text: str, matched_words: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        """风险复审入口：用 deepseek-v4-pro 模型做高精度风险判定。
+
+        场景化模型路由：风险复审对精度要求高，强制使用 pro 模型。
+        若账户未配置 pro 模型或余额不足，自动回退到默认 model。
+
+        :param text: 待复审原文
+        :param matched_words: 关键词匹配器命中的词库词条列表
+        :return: AI 结构化结果字典（含 risk 字段）
+        """
+        system_prompt, user_prompt = BUILD_TRANSLATE_PROMPT(text, matched_words)
+        try:
+            # 风险复审强制用 pro 模型（高精度）
+            return await self.chat(system_prompt, user_prompt, model_override="deepseek-v4-pro")
+        except Exception as exc:
+            logger.warning("风险复审 pro 模型调用失败，回退默认模型: %s", exc)
+            # pro 模型不可用时回退到默认 model
+            return await self.chat(system_prompt, user_prompt)
 
     @staticmethod
     def _parse_content(content: str) -> dict[str, Any]:

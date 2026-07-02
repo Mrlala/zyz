@@ -52,6 +52,51 @@
       </el-col>
     </el-row>
 
+    <!-- 消耗对账卡片 -->
+    <div class="page-card" style="margin-top: 16px">
+      <div class="table-header">
+        <h3 style="margin: 0">消耗对账</h3>
+        <el-button link type="primary" size="small" @click="loadReconcile">刷新</el-button>
+      </div>
+      <el-row :gutter="16" style="margin-top: 12px" v-loading="reconcileLoading">
+        <el-col :xs="24" :sm="8">
+          <div class="reconcile-item">
+            <span class="reconcile-label">本地估算消耗</span>
+            <span class="reconcile-value">¥{{ formatCost(reconcile.estimated_cost) }}</span>
+            <span class="reconcile-hint">累计自 ai_call_logs</span>
+          </div>
+        </el-col>
+        <el-col :xs="24" :sm="8">
+          <div class="reconcile-item">
+            <span class="reconcile-label">DeepSeek 账户余额</span>
+            <span class="reconcile-value" :class="{ 'balance-warn': reconcileWarn }">
+              ¥{{ reconcile.balance_total || '--' }}
+            </span>
+            <span class="reconcile-hint">{{ reconcile.balance_available ? '可用' : '不可用' }}</span>
+          </div>
+        </el-col>
+        <el-col :xs="24" :sm="8">
+          <div class="reconcile-item">
+            <span class="reconcile-label">偏差分析</span>
+            <span class="reconcile-value" :class="reconcileDeviation >= 0 ? 'deviation-up' : 'deviation-down'">
+              {{ reconcileDeviation >= 0 ? '+' : '' }}¥{{ formatCost(Math.abs(reconcileDeviation).toString()) }}
+            </span>
+            <span class="reconcile-hint">
+              {{ reconcileDeviation >= 0 ? '估算偏高（缓存命中未计）' : '估算偏低（可能含其他扣费）' }}
+            </span>
+          </div>
+        </el-col>
+      </el-row>
+      <el-alert
+        v-if="reconcileWarn"
+        type="warning"
+        :closable="false"
+        show-icon
+        style="margin-top: 12px"
+        title="账户余额低于 10 元，请及时充值"
+      />
+    </div>
+
     <!-- 趋势图 -->
     <div class="page-card" style="margin-top: 16px">
       <h3 style="margin: 0 0 12px">近 7 天 AI 调用趋势</h3>
@@ -161,7 +206,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh, Search, Download } from '@element-plus/icons-vue'
 import ECharts from '@/components/ECharts.vue'
-import { monitorApi } from '@/api/manage'
+import { monitorApi, aiConfigApi } from '@/api/manage'
 import { formatDateTime, formatNumber, formatPercent } from '@/utils/format'
 import { exportToExcel } from '@/utils/excel'
 import { useDateRange } from '@/composables/useDateRange'
@@ -177,6 +222,25 @@ const logs = ref<any[]>([])
 const page = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
+
+// 消耗对账
+const reconcileLoading = ref(false)
+const reconcile = reactive({
+  estimated_cost: '0',
+  balance_total: '',
+  balance_available: false,
+})
+const reconcileWarn = computed(() => {
+  if (!reconcile.balance_total) return false
+  return parseFloat(reconcile.balance_total) < 10
+})
+const reconcileDeviation = computed(() => {
+  const est = parseFloat(reconcile.estimated_cost || '0')
+  const bal = parseFloat(reconcile.balance_total || '0')
+  if (!bal) return 0
+  // 偏差 = 估算消耗 - 余额减少量（简化：估算 - 当前余额，仅当有过充值时为参考）
+  return est - bal
+})
 
 // 明细筛选：与统计卡片的 dateRange 独立，默认不限制日期
 const logDateRange = ref<[string, string] | null>(null)
@@ -217,6 +281,25 @@ async function loadStats() {
   try {
     stats.value = await monitorApi.getAiStats(toParams())
   } catch {}
+}
+
+async function loadReconcile() {
+  reconcileLoading.value = true
+  try {
+    // 本地估算消耗来自 ai-stats 的 total_cost（全量）
+    const statsData: any = await monitorApi.getAiStats({})
+    reconcile.estimated_cost = String(statsData.total_cost || '0')
+    // 余额来自 DeepSeek 官方接口
+    const balanceData: any = await aiConfigApi.getBalance()
+    reconcile.balance_available = !!balanceData.is_available
+    const infos = balanceData.balance_infos || []
+    const cny = infos.find((b: any) => b.currency === 'CNY') || infos[0]
+    reconcile.balance_total = cny?.total_balance || ''
+  } catch {
+    reconcile.balance_total = ''
+  } finally {
+    reconcileLoading.value = false
+  }
 }
 
 function getLogParams() {
@@ -302,6 +385,7 @@ async function exportAiLogs() {
 onMounted(() => {
   loadStats()
   loadLogs()
+  loadReconcile()
 })
 </script>
 
@@ -310,5 +394,35 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+.reconcile-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--el-fill-color-light);
+}
+.reconcile-label {
+  font-size: 13px;
+  color: #909399;
+}
+.reconcile-value {
+  font-size: 22px;
+  font-weight: 600;
+  color: #303133;
+}
+.reconcile-hint {
+  font-size: 12px;
+  color: #c0c4cc;
+}
+.balance-warn {
+  color: #f56c6c;
+}
+.deviation-up {
+  color: #e6a23c;
+}
+.deviation-down {
+  color: #67c23a;
 }
 </style>

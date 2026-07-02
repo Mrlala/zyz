@@ -103,6 +103,11 @@ export const aiConfigApi = {
   get: () => request({ url: '/manage/ai-config', method: 'get' }),
   update: (data: Record<string, any>) => request({ url: '/manage/ai-config', method: 'put', data }),
   test: () => request({ url: '/manage/ai-config/test', method: 'post' }),
+  getBalance: () => request({ url: '/manage/ai-config/balance', method: 'get' }),
+  getModels: () => request({ url: '/manage/ai-config/models', method: 'get' }),
+  getDeprecation: () => request({ url: '/manage/ai-config/deprecation', method: 'get' }),
+  migrateModel: (target_model: string) =>
+    request({ url: '/manage/ai-config/migrate-model', method: 'post', data: { target_model } }),
 }
 
 // ===================== 监控 =====================

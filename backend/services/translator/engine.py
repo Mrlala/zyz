@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from models.word import WordContext
-from services.ai.client import AIClient
+from services.ai.client import AIClient, InsufficientBalanceError
 from services.ai.fallback import FallbackHandler
 from services.translator.matcher import KeywordMatcher, KeywordMatch
 
@@ -50,6 +50,12 @@ class TranslationEngine:
         try:
             ai_result = await self.ai_client.translate(text, matched_words)
             return self.build_result(text, matched_words, ai_result)
+        except InsufficientBalanceError as exc:
+            # 余额不足：明确提示并降级到词库模式
+            logger.error("DeepSeek 余额不足，触发降级: %s", exc)
+            fallback_result = self.fallback.handle(text, matched_words, exc)
+            fallback_result["fallback_reason"] = "insufficient_balance"
+            return fallback_result
         except Exception as exc:  # noqa: BLE001 捕获所有 AI 异常以触发降级
             logger.warning("AI 调用失败，触发降级: %s", exc)
             fallback_result = self.fallback.handle(text, matched_words, exc)

@@ -3,6 +3,10 @@
 - GET  /ai-config：获取 AI 配置列表（敏感字段脱敏）
 - PUT  /ai-config：批量更新 AI 配置
 - POST /ai-config/test：测试 AI 连接
+- GET  /ai-config/balance：查询 DeepSeek 账户余额
+- GET  /ai-config/models：列出 DeepSeek 可用模型
+- GET  /ai-config/deprecation：获取当前模型弃用状态
+- POST /ai-config/migrate-model：一键切换弃用模型到推荐模型
 
 权限点：ai:config:manage
 """
@@ -20,6 +24,13 @@ from core.database import get_db
 from core.rbac import require_permission
 from models.admin import AdminAccount, SystemConfig
 from schemas import BaseResponse
+from services.ai.deepseek_api import (
+    DEPRECATION_DEADLINE,
+    DEFAULT_REPLACEMENT_MODEL,
+    is_model_deprecated,
+    list_models,
+    query_balance,
+)
 
 router = APIRouter(prefix="/ai-config", tags=["AI配置"])
 
@@ -190,4 +201,106 @@ async def test_ai_connection(
             "completion_tokens": usage.get("completion_tokens", 0),
             "total_tokens": usage.get("total_tokens", 0),
         },
+    })
+
+
+# ---- DeepSeek 辅助接口 ----
+
+def _get_current_api_key(db: Session) -> str:
+    """读取当前配置的 deepseek_api_key（数据库优先，回退 .env）。"""
+    from config import settings
+
+    cfg = db.execute(
+        select(SystemConfig).where(SystemConfig.config_key == "deepseek_api_key")
+    ).scalar_one_or_none()
+    return (cfg.config_value if cfg else None) or settings.DEEPSEEK_API_KEY
+
+
+def _get_current_model(db: Session) -> str:
+    """读取当前配置的 deepseek_model（数据库优先，回退 .env）。"""
+    from config import settings
+
+    cfg = db.execute(
+        select(SystemConfig).where(SystemConfig.config_key == "deepseek_model")
+    ).scalar_one_or_none()
+    return (cfg.config_value if cfg else None) or settings.DEEPSEEK_MODEL
+
+
+@router.get("/balance", response_model=BaseResponse)
+async def get_balance(
+    db: Session = Depends(get_db),
+    admin: AdminAccount = Depends(require_permission("ai:config:manage")),
+) -> BaseResponse:
+    """查询 DeepSeek 账户余额（代理调用官方 /user/balance）。"""
+    api_key = _get_current_api_key(db)
+    try:
+        balance = await query_balance(api_key)
+        return BaseResponse(data=balance)
+    except RuntimeError as exc:
+        return BaseResponse(code=1, message=str(exc), data=None)
+
+
+@router.get("/models", response_model=BaseResponse)
+async def list_available_models(
+    db: Session = Depends(get_db),
+    admin: AdminAccount = Depends(require_permission("ai:config:manage")),
+) -> BaseResponse:
+    """列出 DeepSeek 当前可用模型（代理调用官方 /models）。"""
+    api_key = _get_current_api_key(db)
+    try:
+        models = await list_models(api_key)
+        return BaseResponse(data={"list": models, "total": len(models)})
+    except RuntimeError as exc:
+        return BaseResponse(code=1, message=str(exc), data=None)
+
+
+@router.get("/deprecation", response_model=BaseResponse)
+async def get_deprecation_status(
+    db: Session = Depends(get_db),
+    admin: AdminAccount = Depends(require_permission("ai:config:manage")),
+) -> BaseResponse:
+    """获取当前模型的弃用状态与推荐替换模型。"""
+    current_model = _get_current_model(db)
+    return BaseResponse(data={
+        "current_model": current_model,
+        "is_deprecated": is_model_deprecated(current_model),
+        "deadline": DEPRECATION_DEADLINE,
+        "recommended_model": DEFAULT_REPLACEMENT_MODEL,
+    })
+
+
+class MigrateModelRequest(BaseModel):
+    """一键切换模型请求。"""
+
+    target_model: str = Field(..., description="目标模型名")
+
+
+@router.post("/migrate-model", response_model=BaseResponse)
+async def migrate_model(
+    body: MigrateModelRequest,
+    db: Session = Depends(get_db),
+    admin: AdminAccount = Depends(require_permission("ai:config:manage")),
+) -> BaseResponse:
+    """一键切换弃用模型到推荐模型（更新 system_configs.deepseek_model）。"""
+    if not body.target_model:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="target_model 不能为空")
+
+    cfg = db.execute(
+        select(SystemConfig).where(SystemConfig.config_key == "deepseek_model")
+    ).scalar_one_or_none()
+    if not cfg:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="配置项 deepseek_model 不存在",
+        )
+
+    old_model = cfg.config_value
+    cfg.config_value = body.target_model
+    cfg.updated_at = datetime.now(timezone.utc)
+    db.commit()
+
+    return BaseResponse(data={
+        "old_model": old_model,
+        "new_model": body.target_model,
+        "updated_at": cfg.updated_at.isoformat(),
     })
