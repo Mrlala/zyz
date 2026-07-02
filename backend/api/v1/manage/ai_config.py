@@ -44,10 +44,9 @@ class ConfigItem(BaseModel):
     value: str = Field(..., description="配置值")
 
 
-class ConfigUpdateRequest(BaseModel):
-    """批量更新配置请求。"""
-
-    configs: list[ConfigItem] = Field(default_factory=list)
+# 非敏感配置白名单：即使数据库里 is_sensitive=True 也强制明文返回
+# （api_url/model 等不含密钥，显示为 *** 会影响用户编辑）
+NON_SENSITIVE_KEYS = {"deepseek_api_url", "deepseek_model", "deepseek_temperature", "deepseek_max_tokens"}
 
 
 # ---- 接口 ----
@@ -59,7 +58,8 @@ async def list_ai_config(
 ) -> BaseResponse:
     """获取 AI 配置列表。
 
-    敏感字段（is_sensitive=True）的 config_value 显示为 "已设置" 或 "未设置"，不返回真实值。
+    敏感字段（is_sensitive=True 且不在 NON_SENSITIVE_KEYS 白名单中）的 config_value
+    显示为 "已设置" 或 "未设置"，不返回真实值。
     """
     configs = db.execute(
         select(SystemConfig).where(SystemConfig.category == "ai").order_by(SystemConfig.config_key)
@@ -67,16 +67,18 @@ async def list_ai_config(
 
     items = []
     for c in configs:
+        # api_url 等非密钥配置强制按非敏感处理（修正历史数据 is_sensitive=True 的问题）
+        effective_sensitive = c.is_sensitive and c.config_key not in NON_SENSITIVE_KEYS
         item = {
             "id": c.id,
             "key": c.config_key,
             "value_type": c.value_type,
             "category": c.category,
             "description": c.description,
-            "is_sensitive": c.is_sensitive,
+            "is_sensitive": effective_sensitive,
             "updated_at": c.updated_at.isoformat() if c.updated_at else None,
         }
-        if c.is_sensitive:
+        if effective_sensitive:
             item["value"] = "已设置" if c.config_value else "未设置"
         else:
             item["value"] = c.config_value
@@ -86,16 +88,19 @@ async def list_ai_config(
 
 @router.put("", response_model=BaseResponse)
 async def update_ai_config(
-    body: ConfigUpdateRequest,
+    body: list[ConfigItem],
     db: Session = Depends(get_db),
     admin: AdminAccount = Depends(require_permission("ai:config:manage")),
 ) -> BaseResponse:
-    """批量更新 AI 配置。"""
-    if not body.configs:
+    """批量更新 AI 配置。
+
+    请求体为 ConfigItem 数组：[{"key": "...", "value": "..."}, ...]
+    """
+    if not body:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="配置项不能为空")
 
     # 取出所有 key 一次性查询，避免逐条 hit DB
-    keys = [item.key for item in body.configs]
+    keys = [item.key for item in body]
     existing = db.execute(select(SystemConfig).where(SystemConfig.config_key.in_(keys))).scalars().all()
     existing_map = {c.config_key: c for c in existing}
 
@@ -108,7 +113,7 @@ async def update_ai_config(
 
     updated_keys: list[str] = []
     now = datetime.now(timezone.utc)
-    for item in body.configs:
+    for item in body:
         cfg = existing_map[item.key]
         # 跳过空值（避免误清空敏感配置）
         if item.value == "":
@@ -134,7 +139,10 @@ async def test_ai_connection(
     """测试 AI 连接。
 
     读取 SystemConfig 中的 deepseek_api_key/api_url/model，发送一条简单 prompt 验证连通性。
+    数据库无配置时回退到 .env 环境变量。
     """
+    from config import settings
+
     # 读取关键配置
     keys_needed = ["deepseek_api_key", "deepseek_api_url", "deepseek_model"]
     configs = db.execute(
@@ -142,14 +150,15 @@ async def test_ai_connection(
     ).scalars().all()
     config_map = {c.config_key: c.config_value for c in configs}
 
-    api_key = config_map.get("deepseek_api_key") or ""
-    api_url = config_map.get("deepseek_api_url") or "https://api.deepseek.com/v1/chat/completions"
-    model = config_map.get("deepseek_model") or "deepseek-chat"
+    # 数据库优先，回退 .env
+    api_key = config_map.get("deepseek_api_key") or settings.DEEPSEEK_API_KEY or ""
+    api_url = config_map.get("deepseek_api_url") or settings.DEEPSEEK_API_URL or "https://api.deepseek.com/v1/chat/completions"
+    model = config_map.get("deepseek_model") or settings.DEEPSEEK_MODEL or "deepseek-chat"
 
     if not api_key:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="未配置 deepseek_api_key，无法测试连接",
+            detail="未配置 deepseek_api_key（数据库和 .env 均无值），无法测试连接",
         )
 
     headers = {
