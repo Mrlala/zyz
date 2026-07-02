@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from core.database import get_db
@@ -55,6 +55,15 @@ class WordRiskRequest(BaseModel):
     risk_level: str = Field(..., description="low/medium/high")
     risk_types: list[str] = Field(default_factory=list)
     advice: str = ""
+
+
+class BatchStatusRequest(BaseModel):
+    ids: list[int] = Field(..., min_length=1)
+    status: str = Field(..., description="published/approved/rejected/pending")
+
+
+class BatchDeleteRequest(BaseModel):
+    ids: list[int] = Field(..., min_length=1)
 
 
 @router.get("", response_model=BaseResponse)
@@ -130,6 +139,47 @@ async def create_word(
     db.commit()
     db.refresh(word)
     return BaseResponse(data={"id": word.id, "word": word.word, "status": word.status})
+
+
+@router.put("/batch-status", response_model=BaseResponse)
+async def batch_update_status(
+    body: BatchStatusRequest,
+    db: Session = Depends(get_db),
+    admin: AdminAccount = Depends(require_permission("content:word:audit")),
+) -> BaseResponse:
+    """批量审核状态变更。"""
+    if body.status not in ("published", "approved", "rejected", "pending"):
+        raise HTTPException(status_code=422, detail="status 取值非法")
+    count = db.execute(
+        select(func.count()).select_from(
+            select(Word).where(Word.id.in_(body.ids), Word.deleted_at.is_(None)).subquery()
+        )
+    ).scalar_one()
+    db.execute(
+        update(Word).where(Word.id.in_(body.ids), Word.deleted_at.is_(None)).values(status=body.status)
+    )
+    db.commit()
+    return BaseResponse(data={"updated": count, "status": body.status})
+
+
+@router.delete("/batch", response_model=BaseResponse)
+async def batch_delete_words(
+    body: BatchDeleteRequest,
+    db: Session = Depends(get_db),
+    admin: AdminAccount = Depends(require_permission("content:word:manage")),
+) -> BaseResponse:
+    """批量软删除词条。"""
+    now = datetime.now(timezone.utc)
+    count = db.execute(
+        select(func.count()).select_from(
+            select(Word).where(Word.id.in_(body.ids), Word.deleted_at.is_(None)).subquery()
+        )
+    ).scalar_one()
+    db.execute(
+        update(Word).where(Word.id.in_(body.ids), Word.deleted_at.is_(None)).values(deleted_at=now)
+    )
+    db.commit()
+    return BaseResponse(data={"deleted": count})
 
 
 @router.get("/{word_id}", response_model=BaseResponse)

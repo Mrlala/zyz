@@ -206,11 +206,32 @@ async def ai_stats(
 async def list_ai_logs(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    start_date: str | None = Query(None, description="开始日期 YYYY-MM-DD"),
+    end_date: str | None = Query(None, description="结束日期 YYYY-MM-DD"),
+    endpoint: str | None = Query(None, description="接口路径模糊匹配"),
+    success: bool | None = Query(None, description="成功状态过滤"),
+    fallback_used: bool | None = Query(None, description="降级标记过滤"),
+    keyword: str | None = Query(None, description="错误信息关键词"),
     db: Session = Depends(get_db),
     admin: AdminAccount = Depends(require_permission("monitor:ai:view")),
 ) -> BaseResponse:
-    """AI 调用明细列表。"""
+    """AI 调用明细列表（支持日期/接口/成功/降级/关键词筛选）。"""
     query = select(AiCallLog)
+    filters = []
+    if start_date:
+        filters.append(func.date(AiCallLog.created_at) >= start_date)
+    if end_date:
+        filters.append(func.date(AiCallLog.created_at) <= end_date)
+    if endpoint:
+        filters.append(AiCallLog.endpoint.like(f"%{endpoint}%"))
+    if success is not None:
+        filters.append(AiCallLog.success.is_(success))
+    if fallback_used is not None:
+        filters.append(AiCallLog.fallback_used.is_(fallback_used))
+    if keyword:
+        filters.append(AiCallLog.error_msg.like(f"%{keyword}%"))
+    if filters:
+        query = query.where(*filters)
     total = db.execute(select(func.count()).select_from(query.subquery())).scalar_one()
     query = (
         query.order_by(AiCallLog.created_at.desc())

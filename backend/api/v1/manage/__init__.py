@@ -15,6 +15,7 @@ from api.v1.manage.content_audit import router as content_audit_router
 from api.v1.manage.ai_config import router as ai_config_router
 from api.v1.manage.monitor import router as monitor_router
 from api.v1.manage.audit import router as audit_router
+from api.v1.manage.search import router as search_router
 
 manage_router = APIRouter(prefix="/manage", tags=["后台管理"])
 manage_router.include_router(auth_router)
@@ -27,5 +28,6 @@ manage_router.include_router(content_audit_router)
 manage_router.include_router(ai_config_router)
 manage_router.include_router(monitor_router)
 manage_router.include_router(audit_router)
+manage_router.include_router(search_router)
 
 __all__ = ["manage_router"]

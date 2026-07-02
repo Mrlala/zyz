@@ -163,29 +163,25 @@ async def test_ai_connection(
             reply = data.get("choices", [{}])[0].get("message", {}).get("content", "")
             usage = data.get("usage", {})
     except httpx.TimeoutException:
-        return BaseResponse(code=0, data={
-            "success": False,
-            "error": "请求超时",
-            "api_url": api_url,
-            "model": model,
-        })
+        return BaseResponse(
+            code=1,
+            message="AI 连接测试失败：请求超时",
+            data={"error": "请求超时", "api_url": api_url, "model": model},
+        )
     except httpx.HTTPError as exc:
-        return BaseResponse(code=0, data={
-            "success": False,
-            "error": f"HTTP 错误: {exc}",
-            "api_url": api_url,
-            "model": model,
-        })
+        return BaseResponse(
+            code=1,
+            message="AI 连接测试失败：HTTP 错误",
+            data={"error": f"HTTP 错误: {exc}", "api_url": api_url, "model": model},
+        )
     except (KeyError, IndexError) as exc:
-        return BaseResponse(code=0, data={
-            "success": False,
-            "error": f"响应结构异常: {exc}",
-            "api_url": api_url,
-            "model": model,
-        })
+        return BaseResponse(
+            code=1,
+            message="AI 连接测试失败：响应结构异常",
+            data={"error": f"响应结构异常: {exc}", "api_url": api_url, "model": model},
+        )
 
     return BaseResponse(data={
-        "success": True,
         "api_url": api_url,
         "model": model,
         "reply": reply,

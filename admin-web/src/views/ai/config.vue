@@ -35,7 +35,7 @@
 
       <!-- 测试结果 -->
       <el-dialog v-model="testResultVisible" title="AI 连接测试结果" width="500px">
-        <el-result v-if="testResult?.success" icon="success" title="连接成功" :sub-title="`模型: ${testResult.model}`">
+        <el-result v-if="testSuccess" icon="success" title="连接成功" :sub-title="`模型: ${testResult.model}`">
           <template #extra>
             <div class="test-detail">
               <p><b>API URL:</b> {{ testResult.api_url }}</p>
@@ -74,6 +74,7 @@ const revealSecret = reactive<Record<string, boolean>>({})
 
 const testResultVisible = ref(false)
 const testResult = ref<any>(null)
+const testSuccess = ref(false)
 
 async function loadConfig() {
   loading.value = true
@@ -117,8 +118,20 @@ async function testConnection() {
   try {
     const data: any = await aiConfigApi.test()
     testResult.value = data
+    testSuccess.value = true
     testResultVisible.value = true
-  } catch {
+  } catch (err: any) {
+    // 后端 code=1 时拦截器会 reject，err.response.data 是 BaseResponse
+    const resp = err?.response?.data
+    if (resp && typeof resp.code === 'number') {
+      // BaseResponse 业务失败：提取 data 字段（含 error/api_url/model）
+      testResult.value = resp.data || { error: resp.message }
+    } else {
+      // HTTP 错误（如 400/500）
+      testResult.value = { error: resp?.detail || err?.message || '未知错误' }
+    }
+    testSuccess.value = false
+    testResultVisible.value = true
   } finally {
     testLoading.value = false
   }

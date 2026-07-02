@@ -70,6 +70,10 @@ export const wordApi = {
     request({ url: `/manage/words/${id}/status`, method: 'put', data: { status } }),
   updateRisk: (id: number, data: { risk_level: string; risk_types: string[]; advice: string }) =>
     request({ url: `/manage/words/${id}/risk`, method: 'put', data }),
+  batchUpdateStatus: (ids: number[], status: string) =>
+    request({ url: '/manage/words/batch-status', method: 'put', data: { ids, status } }),
+  batchDelete: (ids: number[]) =>
+    request({ url: '/manage/words/batch', method: 'delete', data: { ids } }),
 }
 
 // ===================== 分类管理 =====================
@@ -107,8 +111,16 @@ export const monitorApi = {
     request({ url: '/manage/monitor/api-stats', method: 'get', params }),
   getAiStats: (params?: { start_date?: string; end_date?: string }) =>
     request({ url: '/manage/monitor/ai-stats', method: 'get', params }),
-  listAiLogs: (params: { page: number; page_size: number }) =>
-    request({ url: '/manage/monitor/ai-logs', method: 'get', params }),
+  listAiLogs: (params: {
+    page: number
+    page_size: number
+    start_date?: string
+    end_date?: string
+    endpoint?: string
+    success?: boolean
+    fallback_used?: boolean
+    keyword?: string
+  }) => request({ url: '/manage/monitor/ai-logs', method: 'get', params }),
 }
 
 // ===================== 操作审计日志 =====================
@@ -119,4 +131,10 @@ export const auditLogApi = {
     request({ url: '/manage/audit-logs/login', method: 'get', params }),
   export: (params: { module?: string; action?: string; start_date?: string; end_date?: string }) =>
     request({ url: '/manage/audit-logs/export', method: 'get', params }),
+}
+
+// ===================== 全局搜索 =====================
+export const searchApi = {
+  search: (q: string, limit = 5) =>
+    request({ url: '/manage/search', method: 'get', params: { q, limit } }),
 }

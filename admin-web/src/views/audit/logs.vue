@@ -24,15 +24,17 @@
             <el-form-item>
               <el-button type="primary" :icon="Search" @click="searchOp">查询</el-button>
               <el-button @click="resetOpFilter">重置</el-button>
-              <el-button
-                v-if="hasPermission('audit:log:export')"
-                type="success"
-                :icon="Download"
-                :loading="exportLoading"
-                @click="exportLogs"
-              >
-                导出 CSV
-              </el-button>
+              <el-dropdown v-if="hasPermission('audit:log:export')" @command="exportLogs">
+                <el-button type="success" :icon="Download" :loading="exportLoading">
+                  导出<el-icon class="el-icon--right"><ArrowDown /></el-icon>
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="csv">CSV 格式</el-dropdown-item>
+                    <el-dropdown-item command="excel">Excel 格式</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
             </el-form-item>
           </el-form>
 
@@ -182,11 +184,15 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Search, Download } from '@element-plus/icons-vue'
+import { Search, Download, ArrowDown } from '@element-plus/icons-vue'
 import { auditLogApi } from '@/api/manage'
 import { formatDateTime, formatNumber } from '@/utils/format'
+import { exportToExcel } from '@/utils/excel'
 import { hasPermission } from '@/utils/permission'
+
+const route = useRoute()
 
 const activeTab = ref<'operation' | 'login'>('operation')
 
@@ -306,8 +312,8 @@ function onTabChange(name: string | number) {
   }
 }
 
-// 导出 CSV：后端返回 JSON list，前端转 CSV 并下载
-async function exportLogs() {
+// 导出：后端返回 JSON list，前端按格式转换下载
+async function exportLogs(format: string = 'csv') {
   exportLoading.value = true
   try {
     const list: any = await auditLogApi.export({
@@ -319,8 +325,27 @@ async function exportLogs() {
       ElMessage.info('当前筛选条件下无操作日志可导出')
       return
     }
-    downloadCsv(list)
-    ElMessage.success(`已导出 ${list.length} 条操作日志`)
+    if (format === 'excel') {
+      const rows = list.map((r: any) => ({
+        'ID': r.id,
+        '时间': formatDateTime(r.created_at),
+        '操作者': r.username || '',
+        '模块': r.module || '',
+        '动作': r.action || '',
+        '方法': r.method || '',
+        '路径': r.path || '',
+        '参数': r.params || '',
+        'IP': r.ip || '',
+        'UA': r.user_agent || '',
+        '状态码': r.status_code,
+        '耗时(ms)': r.duration_ms,
+        '错误信息': r.error_msg || '',
+      }))
+      exportToExcel(rows, 'operation_logs', '操作日志')
+    } else {
+      downloadCsv(list)
+    }
+    ElMessage.success(`已导出 ${list.length} 条操作日志（${format === 'excel' ? 'Excel' : 'CSV'}）`)
   } catch {
   } finally {
     exportLoading.value = false
@@ -382,7 +407,12 @@ function downloadCsv(list: any[]) {
   URL.revokeObjectURL(url)
 }
 
-onMounted(loadOpLogs)
+onMounted(() => {
+  // 消费 GlobalSearch 跳转携带的 query.module 自动填充筛选
+  const mod = route.query.module as string | undefined
+  if (mod) opFilter.value.module = mod
+  loadOpLogs()
+})
 </script>
 
 <style scoped lang="scss">

@@ -19,11 +19,20 @@
         </el-select>
         <el-button type="primary" @click="loadList">查询</el-button>
         <div class="toolbar-right">
+          <el-button :icon="Download" :loading="exportLoading" @click="exportExcel">导出 Excel</el-button>
           <el-button type="primary" :icon="Plus" @click="openCreate">新建词条</el-button>
         </div>
       </div>
 
-      <el-table :data="list" v-loading="loading" border stripe style="margin-top: 12px">
+      <div v-if="selectedRows.length > 0" class="batch-bar">
+        <span class="batch-info">已选 {{ selectedRows.length }} 项</span>
+        <el-button v-if="hasPermission('content:word:audit')" type="success" @click="batchStatus('approved')">批量通过</el-button>
+        <el-button v-if="hasPermission('content:word:audit')" type="warning" @click="batchStatus('rejected')">批量驳回</el-button>
+        <el-button v-if="hasPermission('content:word:manage')" type="danger" @click="batchDelete">批量删除</el-button>
+      </div>
+
+      <el-table :data="list" v-loading="loading" border stripe style="margin-top: 12px" @selection-change="onSelectionChange">
+        <el-table-column type="selection" width="50" />
         <el-table-column prop="word" label="词条" min-width="120" />
         <el-table-column prop="pinyin" label="拼音" min-width="120" />
         <el-table-column prop="meaning" label="释义" min-width="200" show-overflow-tooltip />
@@ -158,17 +167,30 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, Download } from '@element-plus/icons-vue'
 import { wordApi, categoryApi } from '@/api/manage'
 import { formatDateTime } from '@/utils/format'
+import { hasPermission } from '@/utils/permission'
+import { exportToExcel } from '@/utils/excel'
+import { useCategoryTree } from '@/composables/useCategoryTree'
+import { useStatusMaps } from '@/composables/useStatusMaps'
+
+const route = useRoute()
+
+const { statusLabel, statusTagType, riskLabel, riskTagType } = useStatusMaps()
 
 const loading = ref(false)
+const exportLoading = ref(false)
 const submitLoading = ref(false)
 const list = ref<any[]>([])
 const total = ref(0)
 const categoryTree = ref<any[]>([])
+const selectedRows = ref<any[]>([])
+
+const { flatCategories } = useCategoryTree(categoryTree)
 
 const query = reactive({
   page: 1,
@@ -177,19 +199,6 @@ const query = reactive({
   category_id: undefined as number | undefined,
   status: '',
   risk_level: '',
-})
-
-// 展平分类树（带层级前缀）
-const flatCategories = computed(() => {
-  const result: any[] = []
-  const walk = (nodes: any[], depth = 0) => {
-    nodes.forEach((n) => {
-      result.push({ id: n.id, name: n.name, displayName: '　'.repeat(depth) + n.name })
-      if (n.children?.length) walk(n.children, depth + 1)
-    })
-  }
-  walk(categoryTree.value)
-  return result
 })
 
 async function loadCategories() {
@@ -218,17 +227,48 @@ async function loadList() {
   }
 }
 
-function statusLabel(s?: string) {
-  return { pending: '待审核', approved: '已通过', rejected: '已拒绝', published: '已发布' }[s || ''] || s
-}
-function statusTagType(s?: string): any {
-  return { pending: 'warning', approved: 'success', rejected: 'danger', published: 'primary' }[s || ''] || 'info'
-}
-function riskLabel(s?: string) {
-  return { low: '低', medium: '中', high: '高' }[s || ''] || s
-}
-function riskTagType(s?: string): any {
-  return { low: 'success', medium: 'warning', high: 'danger' }[s || ''] || 'info'
+async function exportExcel() {
+  exportLoading.value = true
+  try {
+    // 分页拉取当前筛选条件下的全部数据
+    const allRows: any[] = []
+    let page = 1
+    const pageSize = 100
+    while (true) {
+      const data: any = await wordApi.list({
+        page,
+        page_size: pageSize,
+        keyword: query.keyword || undefined,
+        status: query.status || undefined,
+        risk_level: query.risk_level || undefined,
+        category_id: query.category_id,
+      })
+      const rows = data.list || []
+      allRows.push(...rows)
+      if (allRows.length >= (data.total || 0) || rows.length < pageSize) break
+      page++
+    }
+    if (allRows.length === 0) {
+      ElMessage.info('当前筛选条件下无词条可导出')
+      return
+    }
+    const exportRows = allRows.map((r) => ({
+      '词条': r.word || '',
+      '拼音': r.pinyin || '',
+      '释义': r.meaning || '',
+      '示例': r.example || '',
+      '状态': statusLabel(r.status),
+      '风险等级': riskLabel(r.risk_level),
+      '浏览数': r.view_count || 0,
+      '投票数': r.vote_count || 0,
+      '创建时间': formatDateTime(r.created_at),
+    }))
+    exportToExcel(exportRows, 'words', '词条列表')
+    ElMessage.success(`已导出 ${allRows.length} 条词条`)
+  } catch {
+  } finally {
+    exportLoading.value = false
+  }
 }
 
 // ---- 新建/编辑 ----
@@ -369,9 +409,45 @@ async function removeWord(row: any) {
   } catch {}
 }
 
+// ---- 批量操作 ----
+function onSelectionChange(rows: any[]) {
+  selectedRows.value = rows
+}
+
+async function batchStatus(newStatus: string) {
+  const ids = selectedRows.value.map((r) => r.id)
+  if (!ids.length) return
+  const label = statusLabel(newStatus)
+  try {
+    await ElMessageBox.confirm(`确认将选中的 ${ids.length} 个词条批量设为「${label}」？`, '批量审核', { type: 'warning' })
+    await wordApi.batchUpdateStatus(ids, newStatus)
+    ElMessage.success('批量审核成功')
+    selectedRows.value = []
+    loadList()
+  } catch {}
+}
+
+async function batchDelete() {
+  const ids = selectedRows.value.map((r) => r.id)
+  if (!ids.length) return
+  try {
+    await ElMessageBox.confirm(`确认删除选中的 ${ids.length} 个词条？删除后不可恢复。`, '批量删除', { type: 'warning' })
+    await wordApi.batchDelete(ids)
+    ElMessage.success('批量删除成功')
+    selectedRows.value = []
+    loadList()
+  } catch {}
+}
+
 onMounted(() => {
   loadCategories()
+  // 消费 GlobalSearch 跳转携带的 query.keyword 自动填充并搜索
+  const kw = route.query.keyword as string | undefined
+  if (kw) {
+    query.keyword = kw
+  }
   loadList()
+  // 若带 edit 参数，可后续触发编辑弹窗（暂仅搜索定位）
 })
 </script>
 
@@ -384,5 +460,19 @@ onMounted(() => {
 }
 .toolbar-right {
   margin-left: auto;
+}
+.batch-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: var(--el-fill-color-light);
+  border-radius: 4px;
+  .batch-info {
+    margin-right: 8px;
+    color: var(--el-text-color-regular);
+    font-size: 14px;
+  }
 }
 </style>

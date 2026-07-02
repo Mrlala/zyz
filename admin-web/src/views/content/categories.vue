@@ -63,10 +63,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { ref, reactive, watch, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { categoryApi } from '@/api/manage'
+import { useCategoryTree } from '@/composables/useCategoryTree'
+import { useStatusMaps } from '@/composables/useStatusMaps'
+
+const { levelTagType } = useStatusMaps()
 
 const treeRef = ref()
 const treeData = ref<any[]>([])
@@ -74,27 +78,13 @@ const loading = ref(false)
 const submitLoading = ref(false)
 const filterText = ref('')
 
-const flatCategories = computed(() => {
-  const result: any[] = []
-  const walk = (nodes: any[], depth = 0) => {
-    nodes.forEach((n) => {
-      if (n.level < 3) result.push({ id: n.id, name: n.name, displayName: '　'.repeat(depth) + n.name })
-      if (n.children?.length) walk(n.children, depth + 1)
-    })
-  }
-  walk(treeData.value)
-  return result
-})
+const { flatCategories } = useCategoryTree(treeData, { maxLevel: 3 })
 
 watch(filterText, (val) => treeRef.value?.filter(val))
 
 function filterNode(value: string, data: any) {
   if (!value) return true
   return data.name.includes(value)
-}
-
-function levelTagType(level: number): any {
-  return { 1: 'primary', 2: 'success', 3: 'warning' }[level] || 'info'
 }
 
 async function loadTree() {

@@ -93,6 +93,9 @@
         <el-button type="primary" :loading="pwdLoading" @click="submitChangePwd">确认</el-button>
       </template>
     </el-dialog>
+
+    <!-- 全局快捷搜索 -->
+    <GlobalSearch />
   </el-container>
 </template>
 
@@ -124,6 +127,8 @@ import screenfull from 'screenfull'
 import { useAuthStore } from '@/store/modules/auth'
 import { useThemeStore } from '@/store/modules/theme'
 import { authApi } from '@/api/manage'
+import GlobalSearch from '@/components/GlobalSearch.vue'
+import { usePasswordRules } from '@/composables/usePasswordRules'
 
 const auth = useAuthStore()
 const theme = useThemeStore()
@@ -193,32 +198,11 @@ const pwdLoading = ref(false)
 const pwdFormRef = ref<FormInstance>()
 const pwdForm = ref({ old_password: '', new_password: '', confirm_password: '' })
 
+const { newPasswordRules, confirmRules } = usePasswordRules()
 const pwdRules: FormRules = {
   old_password: [{ required: true, message: '请输入原密码', trigger: 'blur' }],
-  new_password: [
-    { required: true, message: '请输入新密码', trigger: 'blur' },
-    { min: 8, message: '至少 8 位', trigger: 'blur' },
-    {
-      validator: (_r, value, cb) => {
-        if (value && !(/\d/.test(value) && /[a-zA-Z]/.test(value))) {
-          cb(new Error('需包含数字和字母'))
-        } else {
-          cb()
-        }
-      },
-      trigger: 'blur',
-    },
-  ],
-  confirm_password: [
-    { required: true, message: '请确认新密码', trigger: 'blur' },
-    {
-      validator: (_r, value, cb) => {
-        if (value !== pwdForm.value.new_password) cb(new Error('两次密码不一致'))
-        else cb()
-      },
-      trigger: 'blur',
-    },
-  ],
+  new_password: newPasswordRules as any,
+  confirm_password: confirmRules(() => pwdForm.value.new_password) as any,
 }
 
 async function submitChangePwd() {

@@ -62,8 +62,48 @@
     <div class="page-card" style="margin-top: 16px">
       <div class="table-header">
         <h3 style="margin: 0">AI 调用明细</h3>
-        <el-button :icon="Refresh" @click="loadLogs">刷新</el-button>
+        <div>
+          <el-button :icon="Download" :loading="exportLoading" @click="exportAiLogs">导出明细</el-button>
+          <el-button :icon="Refresh" @click="loadLogs">刷新</el-button>
+        </div>
       </div>
+      <el-form inline style="margin-top: 12px" @submit.prevent>
+        <el-form-item label="时间">
+          <el-date-picker
+            v-model="logDateRange"
+            type="daterange"
+            value-format="YYYY-MM-DD"
+            range-separator="至"
+            start-placeholder="开始"
+            end-placeholder="结束"
+            :shortcuts="shortcuts"
+            clearable
+            style="width: 260px"
+          />
+        </el-form-item>
+        <el-form-item label="接口">
+          <el-input v-model="logFilter.endpoint" placeholder="接口路径" clearable style="width: 180px" @keyup.enter="searchLogs" />
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="logFilter.success" placeholder="全部" clearable style="width: 110px" @change="searchLogs">
+            <el-option label="成功" :value="true" />
+            <el-option label="失败" :value="false" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="降级">
+          <el-select v-model="logFilter.fallback_used" placeholder="全部" clearable style="width: 110px" @change="searchLogs">
+            <el-option label="降级" :value="true" />
+            <el-option label="未降级" :value="false" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="错误">
+          <el-input v-model="logFilter.keyword" placeholder="错误关键词" clearable style="width: 160px" @keyup.enter="searchLogs" />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" :icon="Search" @click="searchLogs">查询</el-button>
+          <el-button @click="resetLogFilter">重置</el-button>
+        </el-form-item>
+      </el-form>
       <el-table v-loading="loading" :data="logs" border stripe style="margin-top: 12px">
         <el-table-column prop="created_at" label="时间" width="170">
           <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
@@ -117,78 +157,37 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { Refresh, Search } from '@element-plus/icons-vue'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
+import { Refresh, Search, Download } from '@element-plus/icons-vue'
 import ECharts from '@/components/ECharts.vue'
 import { monitorApi } from '@/api/manage'
 import { formatDateTime, formatNumber, formatPercent } from '@/utils/format'
+import { exportToExcel } from '@/utils/excel'
+import { useDateRange } from '@/composables/useDateRange'
+import { useStatusMaps } from '@/composables/useStatusMaps'
+
+const { dateRange, shortcuts, toParams } = useDateRange()
+const { rateColor: rateColorFn, formatCost } = useStatusMaps()
 
 const loading = ref(false)
+const exportLoading = ref(false)
 const stats = ref<Record<string, any>>({})
 const logs = ref<any[]>([])
 const page = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
 
-function fmtDate(d: Date): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
-
-function defaultDateRange(): [string, string] {
-  const end = new Date()
-  const start = new Date()
-  start.setTime(start.getTime() - 6 * 24 * 3600 * 1000)
-  return [fmtDate(start), fmtDate(end)]
-}
-
-const dateRange = ref<[string, string] | null>(defaultDateRange())
-
-const shortcuts = [
-  {
-    text: '近7天',
-    value: () => {
-      const e = new Date()
-      const s = new Date()
-      s.setTime(s.getTime() - 6 * 24 * 3600 * 1000)
-      return [s, e]
-    },
-  },
-  {
-    text: '近30天',
-    value: () => {
-      const e = new Date()
-      const s = new Date()
-      s.setTime(s.getTime() - 29 * 24 * 3600 * 1000)
-      return [s, e]
-    },
-  },
-  {
-    text: '本月',
-    value: () => {
-      const e = new Date()
-      const s = new Date()
-      s.setDate(1)
-      return [s, e]
-    },
-  },
-]
-
-const rateColor = computed(() => {
-  const r = stats.value.success_rate ?? 0
-  if (r >= 0.95) return '#67c23a'
-  if (r >= 0.8) return '#e6a23c'
-  return '#f56c6c'
+// 明细筛选：与统计卡片的 dateRange 独立，默认不限制日期
+const logDateRange = ref<[string, string] | null>(null)
+const logFilter = reactive({
+  endpoint: '',
+  success: undefined as boolean | undefined,
+  fallback_used: undefined as boolean | undefined,
+  keyword: '',
 })
 
-function formatCost(v: any): string {
-  if (v === null || v === undefined || v === '') return '-'
-  const n = Number(v)
-  if (Number.isNaN(n)) return '-'
-  return n.toFixed(6)
-}
+const rateColor = computed(() => rateColorFn(stats.value.success_rate))
 
 const trendOption = computed(() => {
   const trend: any[] = stats.value.daily_trend || []
@@ -216,24 +215,87 @@ const trendOption = computed(() => {
 
 async function loadStats() {
   try {
-    const params: { start_date?: string; end_date?: string } = {}
-    if (dateRange.value && dateRange.value.length === 2) {
-      params.start_date = dateRange.value[0]
-      params.end_date = dateRange.value[1]
-    }
-    stats.value = await monitorApi.getAiStats(params)
+    stats.value = await monitorApi.getAiStats(toParams())
   } catch {}
+}
+
+function getLogParams() {
+  return {
+    page: page.value,
+    page_size: pageSize.value,
+    start_date: logDateRange.value?.[0] || undefined,
+    end_date: logDateRange.value?.[1] || undefined,
+    endpoint: logFilter.endpoint || undefined,
+    success: logFilter.success,
+    fallback_used: logFilter.fallback_used,
+    keyword: logFilter.keyword || undefined,
+  }
 }
 
 async function loadLogs() {
   loading.value = true
   try {
-    const data: any = await monitorApi.listAiLogs({ page: page.value, page_size: pageSize.value })
+    const data: any = await monitorApi.listAiLogs(getLogParams())
     logs.value = data.list || []
     total.value = data.total || 0
   } catch {
   } finally {
     loading.value = false
+  }
+}
+
+function searchLogs() {
+  page.value = 1
+  loadLogs()
+}
+
+function resetLogFilter() {
+  logDateRange.value = null
+  Object.assign(logFilter, { endpoint: '', success: undefined, fallback_used: undefined, keyword: '' })
+  page.value = 1
+  loadLogs()
+}
+
+async function exportAiLogs() {
+  exportLoading.value = true
+  try {
+    // 分页拉取当前筛选条件下的全部明细
+    const allRows: any[] = []
+    let exportPage = 1
+    const exportPageSize = 100
+    while (true) {
+      const data: any = await monitorApi.listAiLogs({
+        ...getLogParams(),
+        page: exportPage,
+        page_size: exportPageSize,
+      })
+      const rows = data.list || []
+      allRows.push(...rows)
+      if (allRows.length >= (data.total || 0) || rows.length < exportPageSize) break
+      exportPage++
+    }
+    if (allRows.length === 0) {
+      ElMessage.info('当前筛选条件下无 AI 调用记录可导出')
+      return
+    }
+    const exportRows = allRows.map((r) => ({
+      '时间': formatDateTime(r.created_at),
+      '接口': r.endpoint || '',
+      '模式': r.mode || '',
+      '输入Token': r.prompt_tokens || 0,
+      '输出Token': r.completion_tokens || 0,
+      '总Token': r.total_tokens || 0,
+      '耗时(ms)': r.duration_ms || 0,
+      '成功': r.success ? '成功' : '失败',
+      '降级': r.fallback_used ? '降级' : '-',
+      '成本(元)': r.cost_estimate || 0,
+      '错误信息': r.error_msg || '',
+    }))
+    exportToExcel(exportRows, 'ai_logs', 'AI调用明细')
+    ElMessage.success(`已导出 ${allRows.length} 条 AI 调用记录`)
+  } catch {
+  } finally {
+    exportLoading.value = false
   }
 }
 

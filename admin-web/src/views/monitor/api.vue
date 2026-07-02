@@ -86,62 +86,16 @@ import { Search } from '@element-plus/icons-vue'
 import ECharts from '@/components/ECharts.vue'
 import { monitorApi } from '@/api/manage'
 import { formatNumber, formatPercent } from '@/utils/format'
+import { useDateRange } from '@/composables/useDateRange'
+import { useStatusMaps } from '@/composables/useStatusMaps'
+
+const { dateRange, shortcuts, toParams } = useDateRange()
+const { rateColor: rateColorFn } = useStatusMaps()
 
 const loading = ref(false)
 const stats = ref<Record<string, any>>({})
 
-function fmtDate(d: Date): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
-
-function defaultDateRange(): [string, string] {
-  const end = new Date()
-  const start = new Date()
-  start.setTime(start.getTime() - 6 * 24 * 3600 * 1000)
-  return [fmtDate(start), fmtDate(end)]
-}
-
-const dateRange = ref<[string, string] | null>(defaultDateRange())
-
-const shortcuts = [
-  {
-    text: '近7天',
-    value: () => {
-      const e = new Date()
-      const s = new Date()
-      s.setTime(s.getTime() - 6 * 24 * 3600 * 1000)
-      return [s, e]
-    },
-  },
-  {
-    text: '近30天',
-    value: () => {
-      const e = new Date()
-      const s = new Date()
-      s.setTime(s.getTime() - 29 * 24 * 3600 * 1000)
-      return [s, e]
-    },
-  },
-  {
-    text: '本月',
-    value: () => {
-      const e = new Date()
-      const s = new Date()
-      s.setDate(1)
-      return [s, e]
-    },
-  },
-]
-
-const rateColor = computed(() => {
-  const r = stats.value.success_rate ?? 0
-  if (r >= 0.95) return '#67c23a'
-  if (r >= 0.8) return '#e6a23c'
-  return '#f56c6c'
-})
+const rateColor = computed(() => rateColorFn(stats.value.success_rate))
 
 const trendOption = computed(() => {
   const trend: any[] = stats.value.daily_trend || []
@@ -192,12 +146,7 @@ const moduleOption = computed(() => {
 async function loadStats() {
   loading.value = true
   try {
-    const params: { start_date?: string; end_date?: string } = {}
-    if (dateRange.value && dateRange.value.length === 2) {
-      params.start_date = dateRange.value[0]
-      params.end_date = dateRange.value[1]
-    }
-    stats.value = await monitorApi.getApiStats(params)
+    stats.value = await monitorApi.getApiStats(toParams())
   } catch {
   } finally {
     loading.value = false

@@ -136,11 +136,18 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { accountApi, roleApi } from '@/api/manage'
 import { useAuthStore } from '@/store/modules/auth'
 import { formatDateTime } from '@/utils/format'
+import { useStatusMaps } from '@/composables/useStatusMaps'
+import { usePasswordRules } from '@/composables/usePasswordRules'
+
+const route = useRoute()
+const { roleTagType } = useStatusMaps()
+const { passwordRules, newPasswordRules, confirmRules } = usePasswordRules()
 
 const auth = useAuthStore()
 const loading = ref(false)
@@ -176,23 +183,13 @@ async function loadList() {
   }
 }
 
-function roleTagType(code: string) {
-  if (code === 'sys_admin') return 'danger'
-  if (code === 'sec_admin') return 'warning'
-  return 'info'
-}
-
 // ---- 新建 ----
 const createVisible = ref(false)
 const createFormRef = ref<FormInstance>()
 const createForm = reactive({ username: '', password: '', nickname: '', role_id: undefined as number | undefined })
 const createRules: FormRules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }, { min: 2, message: '至少 2 位', trigger: 'blur' }],
-  password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 8, message: '至少 8 位', trigger: 'blur' },
-    { validator: (_r, v, cb) => (v && /\d/.test(v) && /[a-zA-Z]/.test(v) ? cb() : cb(new Error('需包含数字和字母'))), trigger: 'blur' },
-  ],
+  password: passwordRules as any,
   role_id: [{ required: true, message: '请选择角色', trigger: 'change' }],
 }
 
@@ -276,15 +273,8 @@ const resetPwdFormRef = ref<FormInstance>()
 const resetPwdTarget = ref<any>(null)
 const resetPwdForm = reactive({ new_password: '', confirm: '' })
 const resetPwdRules: FormRules = {
-  new_password: [
-    { required: true, message: '请输入新密码', trigger: 'blur' },
-    { min: 8, message: '至少 8 位', trigger: 'blur' },
-    { validator: (_r, v, cb) => (v && /\d/.test(v) && /[a-zA-Z]/.test(v) ? cb() : cb(new Error('需包含数字和字母'))), trigger: 'blur' },
-  ],
-  confirm: [
-    { required: true, message: '请确认密码', trigger: 'blur' },
-    { validator: (_r, v, cb) => (v === resetPwdForm.new_password ? cb() : cb(new Error('两次密码不一致'))), trigger: 'blur' },
-  ],
+  new_password: newPasswordRules as any,
+  confirm: confirmRules(() => resetPwdForm.new_password) as any,
 }
 
 function openResetPwd(row: any) {
@@ -310,6 +300,9 @@ async function submitResetPwd() {
 
 onMounted(() => {
   loadRoles()
+  // 消费 GlobalSearch 跳转携带的 query.keyword 自动填充并搜索
+  const kw = route.query.keyword as string | undefined
+  if (kw) query.keyword = kw
   loadList()
 })
 </script>

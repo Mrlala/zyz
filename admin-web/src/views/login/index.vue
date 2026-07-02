@@ -52,6 +52,9 @@ import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { User, Lock } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/store/modules/auth'
 import { authApi } from '@/api/manage'
+import { usePasswordRules } from '@/composables/usePasswordRules'
+
+const { newPasswordRules, confirmRules } = usePasswordRules()
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -100,30 +103,8 @@ const pwdFormRef = ref<FormInstance>()
 const pwdForm = ref({ new_password: '', confirm_password: '' })
 
 const pwdRules: FormRules = {
-  new_password: [
-    { required: true, message: '请输入新密码', trigger: 'blur' },
-    { min: 8, message: '至少 8 位', trigger: 'blur' },
-    {
-      validator: (_r, value, cb) => {
-        if (value && !(/\d/.test(value) && /[a-zA-Z]/.test(value))) {
-          cb(new Error('需包含数字和字母'))
-        } else {
-          cb()
-        }
-      },
-      trigger: 'blur',
-    },
-  ],
-  confirm_password: [
-    { required: true, message: '请确认密码', trigger: 'blur' },
-    {
-      validator: (_r, value, cb) => {
-        if (value !== pwdForm.value.new_password) cb(new Error('两次密码不一致'))
-        else cb()
-      },
-      trigger: 'blur',
-    },
-  ],
+  new_password: newPasswordRules as any,
+  confirm_password: confirmRules(() => pwdForm.value.new_password) as any,
 }
 
 async function submitForcePwd() {

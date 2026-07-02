@@ -58,6 +58,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { roleApi } from '@/api/manage'
+import { useStatusMaps } from '@/composables/useStatusMaps'
+
+const { roleTagType, moduleLabel } = useStatusMaps()
 
 const loading = ref(false)
 const saveLoading = ref(false)
@@ -67,24 +70,6 @@ const selectedRoleId = ref<number | undefined>(undefined)
 const selectedPermIds = ref<number[]>([])
 
 const currentRole = computed(() => roles.value.find((r) => r.id === selectedRoleId.value))
-
-const MODULE_LABELS: Record<string, string> = {
-  system: '系统管理',
-  content: '内容管理',
-  ai: 'AI 配置',
-  monitor: '监控统计',
-  audit: '审计日志',
-}
-
-function moduleLabel(code: string) {
-  return MODULE_LABELS[code] || code
-}
-
-function roleTagType(code: string) {
-  if (code === 'sys_admin') return 'danger'
-  if (code === 'sec_admin') return 'warning'
-  return 'info'
-}
 
 function isModuleAllChecked(module: string) {
   const perms = permissionGroups.value[module] || []
