@@ -46,9 +46,13 @@ class TranslationEngine:
         # 第二步：多语境处理，补充/调整命中词条释义
         matched_words = self._enrich_with_contexts(text, matched_words, db)
 
-        # 第三步：调用 AI 生成结构化结果
+        # 【短路】词库命中且为短词/短语时，直接返回，不调 AI（省额度、低延迟）
+        if matched_words and self._is_short_phrase(text):
+            return self._build_dict_only_result(text, matched_words)
+
+        # 第三步：未命中或长句，调用 AI 生成结构化结果
         try:
-            ai_result = await self.ai_client.translate(text, matched_words)
+            ai_result = await self.ai_client.translate(text, matched_words, db)
             return self.build_result(text, matched_words, ai_result)
         except InsufficientBalanceError as exc:
             # 余额不足：明确提示并降级到词库模式
@@ -206,6 +210,67 @@ class TranslationEngine:
                 return ctx
         # 无明确命中，取排序最靠前的作为默认语境
         return min(contexts, key=lambda c: c.sort_order)
+
+    @staticmethod
+    def _is_short_phrase(text: str) -> bool:
+        """判断是否短词/短语：长度 ≤ 8 且 无标点（中英文标点均判定）。
+
+        用于决定词库命中后是否短路返回（不调 AI）。
+        """
+        import re
+
+        t = text.strip()
+        if not t:
+            return False
+        if len(t) > 8:
+            return False
+        # 含标点视为句子，不走短路
+        if re.search(r"[，。！？；,;.!?()\[\]【】、\s]", t):
+            return False
+        return True
+
+    def _build_dict_only_result(
+        self, text: str, matched_words: list[KeywordMatch]
+    ) -> dict[str, Any]:
+        """词库命中短路：用词库数据组装完整结果，不调 AI。
+
+        - translation：拼接各命中词条释义
+        - subtext/suggestion/suggested_reply：空（短词无需）
+        - risk：默认 low（词条级风险由详情页展示）
+        - related/context：空（由详情页展示）
+        """
+        keywords: list[dict[str, Any]] = []
+        meaning_parts: list[str] = []
+        for m in matched_words:
+            keywords.append(
+                {
+                    "word": m["word"],
+                    "meaning": m["meaning"],
+                    "source": "database",
+                    "confidence": m["confidence"],
+                    "position": m["position"],
+                    "length": m["length"],
+                    "category_id": m.get("category_id"),
+                    "word_id": m.get("word_id"),
+                    "is_favorited": False,
+                }
+            )
+            meaning_parts.append(f"{m['word']}：{m['meaning']}")
+
+        translation = "；".join(meaning_parts) if meaning_parts else ""
+
+        return {
+            "translation": translation,
+            "keywords": keywords,
+            "context": "",
+            "subtext": "",
+            "suggestion": "",
+            "suggested_reply": "",
+            "risk": {"risk_level": "low", "risk_types": [], "advice": ""},
+            "related": [],
+            "fallback": False,
+            "dict_only": True,  # 标记：纯词库返回（前端可用于隐藏建议回复等）
+        }
 
     @staticmethod
     def _empty_result() -> dict[str, Any]:

@@ -49,6 +49,11 @@
               >{{ w.word }}</view>
             </view>
           </view>
+          <!-- AI 出错提示（仅空状态显示一次） -->
+          <view class="chat-empty__ai-tip">
+            <AlertCircle :size="12" color="#9CA3AF" />
+            <text>AI 翻译仅供参考，如遇错误欢迎点击纠错</text>
+          </view>
         </view>
       </view>
 
@@ -74,8 +79,8 @@
               @relatedClick="handleRelatedClick"
               @copy="handleCopy"
               @feedback="handleFeedback"
-              @favorite="handleFavorite"
-              @followUp="handleFollowUp"
+              @keywordFavorite="handleKeywordFavorite"
+              @keywordCorrect="handleKeywordCorrect"
             />
           </view>
         </view>
@@ -149,20 +154,28 @@
       @selectSession="handleSelectSession"
       @newChat="handleNewChat"
     />
+
+    <!-- 右侧词条解析抽屉 -->
+    <WordDetailDrawer
+      v-model:open="wordDrawerOpen"
+      :word-id="currentWordId"
+    />
   </view>
 </template>
 
 <script setup>
 import { ref, computed, nextTick } from 'vue'
 import { onLoad, onShow, onUnload } from '@dcloudio/uni-app'
-import { Menu, Plus, ArrowUp, BookOpen, ShieldCheck, Trophy, History, Star, Send } from 'lucide-vue-next'
+import { Menu, Plus, ArrowUp, BookOpen, ShieldCheck, Trophy, History, Star, Send, AlertCircle } from 'lucide-vue-next'
 import { useTranslateStore } from '@/store/modules/translate'
 import { useUserStore } from '@/store/modules/user'
 import ResultCards from '@/components/chat/ResultCards.vue'
 import Drawer from '@/components/chat/Drawer.vue'
+import WordDetailDrawer from '@/components/chat/WordDetailDrawer.vue'
 import * as feedbackApi from '@/api/feedback'
 import * as userApi from '@/api/user'
 import * as hotApi from '@/api/hot'
+import * as correctionApi from '@/api/correction'
 
 const translateStore = useTranslateStore()
 const userStore = useUserStore()
@@ -181,6 +194,20 @@ const plusOpen = ref(false)
 const scrollAnchor = ref('')
 // 空状态热词推荐
 const hotWords = ref([])
+
+// 词条解析抽屉（右侧滑入）
+const wordDrawerOpen = ref(false)
+const currentWordId = ref(null)
+
+// 最后一条助手消息（用于反馈/收藏定位翻译结果）
+const lastAssistantMsg = computed(() => {
+  const msgs = translateStore.currentMessages
+  if (!msgs || !msgs.length) return null
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    if (msgs[i].role === 'assistant') return msgs[i]
+  }
+  return null
+})
 
 // 模式配置
 const modes = [
@@ -295,10 +322,72 @@ async function handleTranslate() {
   }
 }
 
-// 关键词点击：填入输入框翻译
-function handleKeywordClick(word) {
-  inputText.value = word
-  handleTranslate()
+// 关键词点击：打开右侧词条解析抽屉
+function handleKeywordClick(kw) {
+  const id = kw?.word_id || kw?.id
+  if (!id) {
+    // 无 word_id（可能是 ai_temp 词条），降级为填入输入框翻译
+    inputText.value = kw?.word || ''
+    if (inputText.value) handleTranslate()
+    return
+  }
+  currentWordId.value = id
+  wordDrawerOpen.value = true
+}
+
+// 词条收藏（ResultCards 命中词条的收藏按钮）
+async function handleKeywordFavorite(kw) {
+  const id = kw?.word_id || kw?.id
+  if (!id) {
+    uni.showToast({ title: '该词条暂不支持收藏', icon: 'none' })
+    return
+  }
+  try {
+    await userStore.toggleFavorite(id)
+    kw.is_favorited = userStore.isFavorited(id)
+    uni.showToast({
+      title: kw.is_favorited ? '已收藏' : '已取消收藏',
+      icon: 'none'
+    })
+  } catch (err) {
+    console.error('收藏失败', err)
+    uni.showToast({ title: '收藏失败', icon: 'none' })
+  }
+}
+
+// 词条纠错（ResultCards 命中词条的纠错按钮）
+function handleKeywordCorrect(kw) {
+  const id = kw?.word_id || kw?.id
+  if (!id) {
+    uni.showToast({ title: '该词条暂不支持纠错', icon: 'none' })
+    return
+  }
+  const wordText = kw?.word || ''
+  uni.showActionSheet({
+    itemList: ['释义错误', '例句错误', '已过时', '其他'],
+    success: (res) => {
+      const types = ['meaning_wrong', 'example_wrong', 'outdated', 'other']
+      const type = types[res.tapIndex]
+      uni.showModal({
+        title: `纠错：${wordText}`,
+        editable: true,
+        placeholderText: '请描述正确的释义或问题',
+        success: (r) => {
+          if (r.confirm && r.content) {
+            correctionApi.submitCorrection({
+              word_id: id,
+              type,
+              content: r.content
+            }).then(() => {
+              uni.showToast({ title: '已提交，感谢纠错', icon: 'success' })
+            }).catch(() => {
+              uni.showToast({ title: '提交失败', icon: 'none' })
+            })
+          }
+        }
+      })
+    }
+  })
 }
 
 // 空状态热词 chip 点击：填入并翻译
@@ -561,6 +650,17 @@ function formatMsgTime(ts) {
   &:active {
     background-color: rgba(254, 44, 85, 0.16);
   }
+}
+
+/* AI 出错提示（仅空状态显示） */
+.chat-empty__ai-tip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 24px;
+  font-size: 11px;
+  color: $text-tertiary;
 }
 
 /* ============ +号浮窗 ============ */
