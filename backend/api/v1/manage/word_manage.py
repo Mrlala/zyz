@@ -35,6 +35,7 @@ class WordCreateRequest(BaseModel):
     pinyin: str | None = None
     meaning: str = Field(..., min_length=1)
     example: str | None = None
+    origin: str | None = None
     category_id: int = Field(..., gt=0)
     risk_level: str = Field("low", description="low/medium/high")
 
@@ -44,6 +45,7 @@ class WordUpdateRequest(BaseModel):
     pinyin: str | None = None
     meaning: str | None = None
     example: str | None = None
+    origin: str | None = None
     category_id: int | None = None
 
 
@@ -128,6 +130,7 @@ async def create_word(
         pinyin=body.pinyin,
         meaning=body.meaning,
         example=body.example,
+        origin=body.origin,
         category_id=body.category_id,
         risk_level=body.risk_level,
         status="published",
@@ -180,6 +183,102 @@ async def batch_delete_words(
     )
     db.commit()
     return BaseResponse(data={"deleted": count})
+
+
+class WordBatchItem(BaseModel):
+    word: str = Field(..., min_length=1, max_length=100)
+    meaning: str = Field(..., min_length=1)
+    category_name: str = Field(..., min_length=1)
+    pinyin: str | None = None
+    risk_level: str = Field("low", description="low/medium/high")
+    example: str | None = None
+
+
+class WordBatchRequest(BaseModel):
+    items: list[WordBatchItem] = Field(..., min_length=1, max_length=1000)
+
+
+@router.post("/batch", response_model=BaseResponse)
+async def batch_create_words(
+    body: WordBatchRequest,
+    db: Session = Depends(get_db),
+    admin: AdminAccount = Depends(require_permission("content:word:manage")),
+) -> BaseResponse:
+    """批量创建词条（导入后 status=pending，需审核）。
+
+    - category_name 不存在时自动创建一级分类
+    - 同分类下 word 已存在（published/pending 且未软删除）则跳过
+    - 返回 success_count / skipped_count / failed_count / failures
+    """
+    # 预加载所有分类到 dict（name -> Category）
+    categories = db.execute(select(Category)).scalars().all()
+    category_map: dict[str, Category] = {c.name: c for c in categories}
+
+    # 预加载已存在 word（published/pending 且未软删除），按 (category_id, word) 去重
+    existing_rows = db.execute(
+        select(Word.category_id, Word.word).where(
+            Word.status.in_(["published", "pending"]),
+            Word.deleted_at.is_(None),
+        )
+    ).all()
+    existing_set: set[tuple[int, str]] = {(row[0], row[1]) for row in existing_rows}
+
+    success_count = 0
+    skipped_count = 0
+    failed_count = 0
+    failures: list[dict] = []
+
+    for idx, item in enumerate(body.items, start=1):
+        # 校验 risk_level
+        if item.risk_level not in ("low", "medium", "high"):
+            failed_count += 1
+            failures.append({"row": idx, "word": item.word, "reason": f"risk_level 非法：{item.risk_level}"})
+            continue
+
+        # 查/建分类
+        category = category_map.get(item.category_name)
+        if category is None:
+            category = Category(
+                name=item.category_name,
+                parent_id=None,
+                level=1,
+                sort_order=0,
+            )
+            db.add(category)
+            db.flush()  # 获取 id
+            category_map[item.category_name] = category
+
+        # 去重检查
+        dedup_key = (category.id, item.word)
+        if dedup_key in existing_set:
+            skipped_count += 1
+            continue
+
+        # 创建 Word
+        word = Word(
+            word=item.word,
+            pinyin=item.pinyin,
+            meaning=item.meaning,
+            example=item.example,
+            category_id=category.id,
+            risk_level=item.risk_level,
+            status="pending",
+            source="manual",
+            created_by=None,
+            created_by_admin_id=admin.id,
+        )
+        db.add(word)
+        existing_set.add(dedup_key)
+        success_count += 1
+
+    db.commit()
+
+    return BaseResponse(data={
+        "success_count": success_count,
+        "skipped_count": skipped_count,
+        "failed_count": failed_count,
+        "failures": failures,
+    })
 
 
 @router.get("/{word_id}", response_model=BaseResponse)

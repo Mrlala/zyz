@@ -13,9 +13,15 @@
         <view class="word-drawer__title-row">
           <text class="word-drawer__word">{{ detail.word }}</text>
           <text v-if="detail.pinyin" class="word-drawer__pinyin">{{ detail.pinyin }}</text>
+          <view v-if="detail.pinyin" class="word-drawer__correct word-drawer__correct--inline" @click.stop="handleSectionCorrect('pinyin_wrong', '拼音')">
+            <AlertCircle :size="12" color="#D1D5DB" />
+          </view>
         </view>
         <view class="word-drawer__meta">
           <view v-if="detail.category_name" class="word-drawer__tag">{{ detail.category_name }}</view>
+          <view v-if="detail.category_name" class="word-drawer__correct word-drawer__correct--inline" @click.stop="handleSectionCorrect('category_wrong', '分类')">
+            <AlertCircle :size="12" color="#D1D5DB" />
+          </view>
           <view v-if="riskLevelText" class="word-drawer__tag" :class="`word-drawer__tag--${detail.risk_level}`">{{ riskLevelText }}</view>
         </view>
         <view class="word-drawer__close" @click="handleClose">
@@ -28,24 +34,33 @@
         <view class="word-drawer__section-title">
           <BookOpen :size="14" color="#9CA3AF" />
           <text>释义</text>
+          <view class="word-drawer__correct" @click.stop="handleSectionCorrect('meaning_wrong', '释义')">
+            <AlertCircle :size="14" color="#D1D5DB" />
+          </view>
         </view>
         <view class="word-drawer__section-body">{{ detail.definition || detail.meaning || '' }}</view>
       </view>
 
-      <!-- 词源 -->
+      <!-- 出处 -->
       <view v-if="detail.origin" class="word-drawer__section">
         <view class="word-drawer__section-title">
           <Sparkles :size="14" color="#9CA3AF" />
-          <text>词源</text>
+          <text>出处</text>
+          <view class="word-drawer__correct" @click.stop="handleSectionCorrect('example_wrong', '出处')">
+            <AlertCircle :size="14" color="#D1D5DB" />
+          </view>
         </view>
         <view class="word-drawer__section-body">{{ detail.origin }}</view>
       </view>
 
-      <!-- 出处/示例 -->
+      <!-- 示例 -->
       <view v-if="detail.example" class="word-drawer__section">
         <view class="word-drawer__section-title">
           <Quote :size="14" color="#9CA3AF" />
-          <text>出处/示例</text>
+          <text>示例</text>
+          <view class="word-drawer__correct" @click.stop="handleSectionCorrect('example_wrong', '示例')">
+            <AlertCircle :size="14" color="#D1D5DB" />
+          </view>
         </view>
         <view class="word-drawer__section-body word-drawer__section-body--quote">{{ detail.example }}</view>
       </view>
@@ -109,6 +124,9 @@
         <view class="word-drawer__section-title">
           <ShieldAlert :size="14" :color="riskColor" />
           <text :style="{ color: riskColor }">风险提示</text>
+          <view class="word-drawer__correct" @click.stop="handleSectionCorrect('risk_wrong', '风险标注')">
+            <AlertCircle :size="14" color="#D1D5DB" />
+          </view>
         </view>
         <view v-if="detail.risk_types && detail.risk_types.length" class="word-drawer__tags">
           <view v-for="(rt, idx) in detail.risk_types" :key="idx" class="word-drawer__chip" :class="`word-drawer__chip--${detail.risk_level}`">{{ rt }}</view>
@@ -169,9 +187,9 @@
         />
         <text class="word-drawer__footer-btn-text">{{ detail.is_favorited ? '已收藏' : '收藏' }}</text>
       </view>
-      <view class="word-drawer__footer-btn word-drawer__footer-btn--primary" @click="handleCorrect">
-        <AlertCircle :size="16" color="#FFFFFF" />
-        <text class="word-drawer__footer-btn-text word-drawer__footer-btn-text--white">纠错</text>
+      <view class="word-drawer__footer-btn word-drawer__footer-btn--ghost" @click="handleOtherCorrect">
+        <AlertCircle :size="16" color="#6B7280" />
+        <text class="word-drawer__footer-btn-text">其他问题</text>
       </view>
     </view>
   </view>
@@ -273,27 +291,49 @@ async function handleFavorite() {
   }
 }
 
-function handleCorrect() {
+// section 级纠错：预设类型，直接弹输入框
+function handleSectionCorrect(type, label) {
   if (!detail.value) return
   const wordId = detail.value.id
   const wordText = detail.value.word
-  const correctionTypes = [
-    { label: '释义错误', value: 'meaning_wrong' },
-    { label: '例句/出处错误', value: 'example_wrong' },
-    { label: '拼音错误', value: 'pinyin_wrong' },
-    { label: '分类错误', value: 'category_wrong' },
-    { label: '风险标注错误', value: 'risk_wrong' },
+  uni.showModal({
+    title: `纠错：${wordText} - ${label}`,
+    editable: true,
+    placeholderText: `请描述${label}的正确内容或问题`,
+    success: (r) => {
+      if (r.confirm && r.content) {
+        correctionApi.submitCorrection({
+          word_id: wordId,
+          type,
+          content: r.content
+        }).then(() => {
+          uni.showToast({ title: '已提交，感谢纠错', icon: 'success' })
+          emit('correct', { word_id: wordId, type, content: r.content })
+        }).catch(() => {
+          uni.showToast({ title: '提交失败', icon: 'none' })
+        })
+      }
+    }
+  })
+}
+
+// 其他问题纠错：过时 / 其他
+function handleOtherCorrect() {
+  if (!detail.value) return
+  const wordId = detail.value.id
+  const wordText = detail.value.word
+  const otherTypes = [
     { label: '已过时', value: 'outdated' },
-    { label: '其他', value: 'other' }
+    { label: '其他问题', value: 'other' }
   ]
   uni.showActionSheet({
-    itemList: correctionTypes.map(t => t.label),
+    itemList: otherTypes.map(t => t.label),
     success: (res) => {
-      const type = correctionTypes[res.tapIndex].value
+      const type = otherTypes[res.tapIndex].value
       uni.showModal({
         title: `纠错：${wordText}`,
         editable: true,
-        placeholderText: '请描述正确的内容或问题',
+        placeholderText: '请描述问题',
         success: (r) => {
           if (r.confirm && r.content) {
             correctionApi.submitCorrection({
@@ -436,6 +476,7 @@ function handleRelatedClick(item) {
   }
 
   &__section-title {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -443,6 +484,31 @@ function handleRelatedClick(item) {
     font-weight: 600;
     color: $text-tertiary;
     margin-bottom: 10px;
+  }
+
+  &__correct {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+
+    &:active {
+      background-color: $bg-sunken;
+    }
+
+    &--inline {
+      position: relative;
+      right: auto;
+      top: auto;
+      transform: none;
+      margin-left: 2px;
+    }
   }
 
   &__section-body {
@@ -684,6 +750,11 @@ function handleRelatedClick(item) {
 
     &--primary {
       background-color: $color-primary;
+    }
+
+    &--ghost {
+      background-color: transparent;
+      border: 1px solid $border-color;
     }
   }
 

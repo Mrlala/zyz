@@ -22,6 +22,12 @@
       <view class="word-detail__section-content">{{ definition }}</view>
     </view>
 
+    <!-- 出处区 -->
+    <view v-if="origin" class="word-detail__section">
+      <view class="word-detail__section-title">出处</view>
+      <view class="word-detail__section-content">{{ origin }}</view>
+    </view>
+
     <!-- 多语境解释（SRS-100） -->
     <view v-if="contexts && contexts.length" class="word-detail__section">
       <view class="word-detail__section-title">多语境解释</view>
@@ -98,6 +104,9 @@ const pinyin = computed(() => props.word.pinyin || '')
 const definition = computed(() => {
   return props.word.definition || props.word.meaning || props.word.summary || ''
 })
+
+// 出处（来源背景）
+const origin = computed(() => props.word.origin || '')
 
 // 分类文案
 const categoryText = computed(() => {

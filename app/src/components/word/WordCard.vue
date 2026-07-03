@@ -29,6 +29,24 @@
         <view class="word-card__meaning">
           {{ meaningText }}
         </view>
+
+        <!-- featured 变体：示例预览 -->
+        <view v-if="variant === 'featured' && examplePreview" class="word-card__example">
+          <text class="word-card__example-quote">"</text>
+          <text class="word-card__example-text">{{ examplePreview }}</text>
+        </view>
+
+        <!-- 底部元信息行：热度 + 浏览量 -->
+        <view v-if="heatText || viewCount" class="word-card__meta">
+          <view v-if="heatText" class="word-card__meta-item">
+            <Flame :size="11" color="#F59E0B" />
+            <text class="word-card__meta-text">{{ heatText }}</text>
+          </view>
+          <view v-if="viewCount" class="word-card__meta-item">
+            <Eye :size="11" color="#9CA3AF" />
+            <text class="word-card__meta-text">{{ viewCount }}</text>
+          </view>
+        </view>
       </view>
 
       <!-- 右侧收藏按钮 -->
@@ -48,7 +66,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { Heart, Flame } from 'lucide-vue-next'
+import { Heart, Flame, Eye } from 'lucide-vue-next'
 import WordTag from './WordTag.vue'
 import RiskBadge from '../common/RiskBadge.vue'
 
@@ -80,7 +98,7 @@ const categoryText = computed(() => {
 
 // 解释文案（截断展示，由 CSS 控制行数）
 const meaningText = computed(() => {
-  return props.word.meaning || props.word.definition || props.word.summary || ''
+  return props.word.meaning || props.word.definition || props.word.summary || '暂无释义'
 })
 
 // 热度文案
@@ -90,6 +108,16 @@ const heatText = computed(() => {
   if (score >= 10000) return (score / 10000).toFixed(1) + 'w'
   return String(score)
 })
+
+// 示例预览（featured 变体展示，截断 30 字符）
+const examplePreview = computed(() => {
+  const ex = props.word.example || ''
+  if (!ex) return ''
+  return ex.length > 30 ? ex.slice(0, 30) + '...' : ex
+})
+
+// 浏览量
+const viewCount = computed(() => props.word.view_count || 0)
 
 function handleCardClick() {
   emit('click', props.word)
@@ -198,6 +226,48 @@ function handleFavClick() {
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
     overflow: hidden;
+  }
+
+  /* ---- featured 示例预览 ---- */
+  &__example {
+    display: flex;
+    align-items: flex-start;
+    gap: 2px;
+    margin-top: 6px;
+    padding: 6px 10px;
+    background-color: $bg-sunken;
+    border-radius: 6px;
+  }
+
+  &__example-quote {
+    font-size: 13px;
+    color: $color-primary;
+    font-weight: 600;
+  }
+
+  &__example-text {
+    font-size: 12px;
+    color: $text-secondary;
+    line-height: 1.4;
+    flex: 1;
+  }
+
+  /* ---- 底部元信息行 ---- */
+  &__meta {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+  }
+
+  &__meta-item {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  &__meta-text {
+    font-size: 11px;
+    color: $text-tertiary;
   }
 
   &__fav {

@@ -138,9 +138,12 @@ const submitting = ref(false)
 // 纠错类型选项
 const correctionTypes = [
   { label: '释义错误', value: 'meaning_wrong' },
-  { label: '示例不当', value: 'example_wrong' },
-  { label: '词条过时', value: 'outdated' },
-  { label: '其他问题', value: 'other' }
+  { label: '例句/出处错误', value: 'example_wrong' },
+  { label: '拼音错误', value: 'pinyin_wrong' },
+  { label: '分类错误', value: 'category_wrong' },
+  { label: '风险标注错误', value: 'risk_wrong' },
+  { label: '已过时', value: 'outdated' },
+  { label: '其他', value: 'other' }
 ]
 
 onLoad((options) => {

@@ -80,6 +80,8 @@
               @feedback="handleFeedback"
               @keywordFavorite="handleKeywordFavorite"
               @keywordCorrect="handleKeywordCorrect"
+              @keywordSubmit="handleKeywordSubmit"
+              @share="handleShare"
             />
           </view>
         </view>
@@ -175,6 +177,7 @@ import * as feedbackApi from '@/api/feedback'
 import * as userApi from '@/api/user'
 import * as hotApi from '@/api/hot'
 import * as correctionApi from '@/api/correction'
+import { submitWord } from '@/api/submission'
 
 const translateStore = useTranslateStore()
 const userStore = useUserStore()
@@ -406,6 +409,35 @@ function handleHotWordClick(w) {
   handleTranslate()
 }
 
+// AI 临时词条一键提交到词库（ResultCards 命中词条的提交按钮）
+function handleKeywordSubmit(kw) {
+  const word = kw?.word
+  if (!word) return
+  uni.showModal({
+    title: '提交到词库',
+    content: `是否将「${word}」提交到词库？提交后将进入审核队列。`,
+    success: async (r) => {
+      if (!r.confirm) return
+      try {
+        await submitWord({
+          word,
+          definition: kw.current_meaning || kw.meaning || kw.definition || '',
+          example: kw.example || '',
+          category_id: kw.category_id || null
+        })
+        uni.showToast({ title: '已提交，待审核', icon: 'success' })
+      } catch (err) {
+        const status = err?.statusCode || err?.status
+        if (status === 409) {
+          uni.showToast({ title: '该词条已存在或已提交', icon: 'none' })
+        } else {
+          uni.showToast({ title: '提交失败，请稍后重试', icon: 'none' })
+        }
+      }
+    }
+  })
+}
+
 // 继续追问：填入提示词，聚焦输入框，不自动发送
 function handleFollowUp(result) {
   const kw = result?.keywords?.[0]?.word
@@ -429,6 +461,54 @@ function handleCopy(text) {
       uni.showToast({ title: '已复制', icon: 'success' })
     }
   })
+}
+
+// 分享：生成纯文本卡片，复制到剪贴板或调用系统分享
+function handleShare(shareData) {
+  const { translation, original_text, keywords, context, subtext } = shareData
+  // 组装分享文本：原文 → 翻译 → 关键词
+  let shareText = `【中译中】\n原文：${original_text || '（无）'}\n人话：${translation || '（无）'}`
+  if (keywords && keywords.length) {
+    const kwText = keywords.slice(0, 3).map(k => `${k.word}${k.meaning ? '：' + k.meaning : ''}`).join('\n')
+    shareText += `\n\n词条解析：\n${kwText}`
+  }
+  if (subtext) {
+    shareText += `\n\n潜台词：${subtext}`
+  }
+
+  // H5 环境：复制到剪贴板 + 提示
+  // #ifdef H5
+  uni.setClipboardData({
+    data: shareText,
+    success: () => {
+      uni.showToast({ title: '已复制翻译结果，可粘贴分享', icon: 'none', duration: 2500 })
+    }
+  })
+  // #endif
+
+  // 小程序/App 环境：调用系统分享
+  // #ifndef H5
+  uni.share({
+    provider: 'weixin',
+    scene: 'WXSceneSession',
+    type: 1,
+    summary: translation || '中译中翻译结果',
+    title: '中译中翻译',
+    href: '',
+    success: () => {
+      uni.showToast({ title: '分享成功', icon: 'success' })
+    },
+    fail: () => {
+      // 分享失败则回退到复制
+      uni.setClipboardData({
+        data: shareText,
+        success: () => {
+          uni.showToast({ title: '已复制，可粘贴分享', icon: 'none' })
+        }
+      })
+    }
+  })
+  // #endif
 }
 
 // 反馈：accurate 直接提交；inaccurate 弹输入框收集备注后提交

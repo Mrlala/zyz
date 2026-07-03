@@ -15,6 +15,20 @@
           <Copy :size="14" color="#6B7280" />
           <text class="hero-card__action-text">复制</text>
         </view>
+        <view class="hero-card__action" @click="handleShare">
+          <Share2 :size="14" color="#6B7280" />
+          <text class="hero-card__action-text">分享</text>
+        </view>
+        <view class="hero-card__action" @click="handleFavorite">
+          <Heart
+            :size="14"
+            :color="isFavorited ? '#FE2C55' : '#6B7280'"
+            :fill="isFavorited ? '#FE2C55' : 'none'"
+          />
+          <text class="hero-card__action-text" :class="{ 'hero-card__action-text--active': isFavorited }">
+            {{ isFavorited ? '已收藏' : '收藏' }}
+          </text>
+        </view>
       </view>
     </view>
 
@@ -52,7 +66,10 @@
           :class="{ 'keyword-list__item--last': idx === keywords.length - 1 }"
         >
           <view class="keyword-list__main" @click="emit('keywordClick', kw)">
-            <text class="keyword-list__word">{{ kw.word }}</text>
+            <view class="keyword-list__word-row">
+              <text class="keyword-list__word">{{ kw.word }}</text>
+              <view v-if="kw.source === 'ai_temp'" class="keyword-list__ai-badge">AI</view>
+            </view>
             <text class="keyword-list__meaning">{{ kw.current_meaning || kw.meaning || kw.definition || '' }}</text>
           </view>
           <view class="keyword-list__actions">
@@ -63,7 +80,10 @@
                 :fill="kw.is_favorited ? '#FE2C55' : 'none'"
               />
             </view>
-            <view class="keyword-list__btn" @click.stop="emit('keywordCorrect', kw)">
+            <view v-if="kw.source === 'ai_temp'" class="keyword-list__btn keyword-list__btn--submit" @click.stop="emit('keywordSubmit', kw)">
+              <Send :size="16" color="#FE2C55" />
+            </view>
+            <view v-else class="keyword-list__btn" @click.stop="emit('keywordCorrect', kw)">
               <AlertCircle :size="16" color="#9CA3AF" />
             </view>
           </view>
@@ -123,7 +143,7 @@
 import { computed } from 'vue'
 import {
   Languages, Copy, Heart, MessageCircle, Bookmark,
-  Lightbulb, ShieldAlert, MapPin, Hash, ThumbsUp, ThumbsDown, AlertCircle
+  Lightbulb, ShieldAlert, MapPin, Hash, ThumbsUp, ThumbsDown, AlertCircle, Share2, Send
 } from 'lucide-vue-next'
 
 const props = defineProps({
@@ -133,7 +153,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['keywordClick', 'relatedClick', 'copy', 'feedback', 'keywordFavorite', 'keywordCorrect'])
+const emit = defineEmits(['keywordClick', 'relatedClick', 'copy', 'feedback', 'keywordFavorite', 'keywordCorrect', 'share', 'favorite'])'keywordSubmit', 'share'])
 
 const translation = computed(() => props.result.translation || '')
 const keywords = computed(() => props.result.keywords || [])
@@ -167,6 +187,16 @@ const riskColor = computed(() => {
 
 function handleCopy(text) {
   emit('copy', text)
+}
+
+function handleShare() {
+  emit('share', {
+    translation: translation.value,
+    original_text: props.result.original_text || '',
+    keywords: keywords.value,
+    context: context.value,
+    subtext: subtext.value,
+  })
 }
 
 function handleFeedback(type) {
@@ -326,11 +356,27 @@ function handleFeedback(type) {
     min-width: 0;
   }
 
+  &__word-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
   &__word {
-    display: block;
     font-size: 14px;
     font-weight: 600;
     color: $color-primary;
+    line-height: 1.4;
+  }
+
+  &__ai-badge {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 600;
+    color: $color-warning;
+    background-color: rgba(245, 158, 11, 0.12);
+    border-radius: 4px;
+    padding: 1px 5px;
     line-height: 1.4;
   }
 

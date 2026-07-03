@@ -19,6 +19,7 @@
         </el-select>
         <el-button type="primary" @click="loadList">查询</el-button>
         <div class="toolbar-right">
+          <el-button :icon="Upload" @click="openImport">导入词条</el-button>
           <el-button :icon="Download" :loading="exportLoading" @click="exportExcel">导出 Excel</el-button>
           <el-button type="primary" :icon="Plus" @click="openCreate">新建词条</el-button>
         </div>
@@ -89,6 +90,9 @@
         </el-form-item>
         <el-form-item label="示例">
           <el-input v-model="form.example" type="textarea" :rows="2" />
+        </el-form-item>
+        <el-form-item label="出处">
+          <el-input v-model="form.origin" type="textarea" :rows="2" placeholder="描述词条来源背景（如源自某事件、某年网络流行）" />
         </el-form-item>
         <el-form-item label="分类" prop="category_id">
           <el-select v-model="form.category_id" placeholder="选择分类" style="width: 100%">
@@ -163,6 +167,67 @@
         <el-button type="primary" :loading="submitLoading" @click="submitRisk">保存</el-button>
       </template>
     </el-dialog>
+
+    <!-- 批量导入词条 -->
+    <el-dialog v-model="importVisible" title="批量导入词条" width="640px">
+      <el-steps :active="importStep" finish-status="success" simple>
+        <el-step title="上传文件" />
+        <el-step title="预览确认" />
+        <el-step title="导入结果" />
+      </el-steps>
+
+      <!-- 步骤 1：上传 -->
+      <div v-if="importStep === 0" class="import-step">
+        <el-upload
+          drag
+          accept=".xlsx,.xls,.csv"
+          :auto-upload="false"
+          :on-change="onFileChange"
+          :show-file-list="false"
+        >
+          <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
+          <div class="el-upload__text">拖拽文件到此处或<em>点击上传</em></div>
+          <template #tip>
+            <div class="el-upload__tip">
+              支持 .xlsx / .csv 格式，单次最多 1000 条。
+              必填列：word / meaning / category_name。
+              <el-button link type="primary" @click.stop="downloadTemplate">下载模板</el-button>
+            </div>
+          </template>
+        </el-upload>
+      </div>
+
+      <!-- 步骤 2：预览 -->
+      <div v-if="importStep === 1" class="import-step">
+        <el-alert :title="`共解析到 ${importRows.length} 条数据，预览前 5 行`" type="info" :closable="false" />
+        <el-table :data="importRows.slice(0, 5)" border size="small" style="margin-top: 8px">
+          <el-table-column prop="word" label="词条" />
+          <el-table-column prop="meaning" label="释义" show-overflow-tooltip />
+          <el-table-column prop="category_name" label="分类" />
+          <el-table-column prop="risk_level" label="风险" width="80" />
+        </el-table>
+      </div>
+
+      <!-- 步骤 3：结果 -->
+      <div v-if="importStep === 2" class="import-step">
+        <el-result :icon="importResult.failed_count === 0 ? 'success' : 'warning'" title="导入完成">
+          <template #sub-title>
+            <p>成功 {{ importResult.success_count }} 条 / 跳过 {{ importResult.skipped_count }} 条 / 失败 {{ importResult.failed_count }} 条</p>
+          </template>
+        </el-result>
+        <el-table v-if="importResult.failures.length > 0" :data="importResult.failures" border size="small" max-height="200">
+          <el-table-column prop="row" label="行号" width="80" />
+          <el-table-column prop="word" label="词条" />
+          <el-table-column prop="reason" label="失败原因" />
+        </el-table>
+      </div>
+
+      <template #footer>
+        <el-button @click="importVisible = false">关闭</el-button>
+        <el-button v-if="importStep === 0" type="primary" :disabled="!importRows.length" @click="importStep = 1">下一步</el-button>
+        <el-button v-if="importStep === 1" type="primary" :loading="importLoading" @click="doImport">确认导入</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -170,11 +235,11 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
-import { Plus, Download } from '@element-plus/icons-vue'
+import { Plus, Download, Upload, UploadFilled } from '@element-plus/icons-vue'
 import { wordApi, categoryApi } from '@/api/manage'
 import { formatDateTime } from '@/utils/format'
 import { hasPermission } from '@/utils/permission'
-import { exportToExcel } from '@/utils/excel'
+import { exportToExcel, parseImportFile, downloadWordImportTemplate } from '@/utils/excel'
 import { useCategoryTree } from '@/composables/useCategoryTree'
 import { useStatusMaps } from '@/composables/useStatusMaps'
 
@@ -275,7 +340,7 @@ async function exportExcel() {
 const formVisible = ref(false)
 const formRef = ref<FormInstance>()
 const editingId = ref(0)
-const form = reactive({ word: '', pinyin: '', meaning: '', example: '', category_id: undefined as number | undefined, risk_level: 'low' })
+const form = reactive({ word: '', pinyin: '', meaning: '', example: '', origin: '', category_id: undefined as number | undefined, risk_level: 'low' })
 const formRules: FormRules = {
   word: [{ required: true, message: '请输入词条', trigger: 'blur' }],
   meaning: [{ required: true, message: '请输入释义', trigger: 'blur' }],
@@ -284,7 +349,7 @@ const formRules: FormRules = {
 
 function openCreate() {
   editingId.value = 0
-  Object.assign(form, { word: '', pinyin: '', meaning: '', example: '', category_id: undefined, risk_level: 'low' })
+  Object.assign(form, { word: '', pinyin: '', meaning: '', example: '', origin: '', category_id: undefined, risk_level: 'low' })
   formVisible.value = true
 }
 
@@ -297,6 +362,7 @@ async function openEdit(row: any) {
       pinyin: data.pinyin || '',
       meaning: data.meaning || '',
       example: data.example || '',
+      origin: data.origin || '',
       category_id: data.category_id,
       risk_level: data.risk_level || 'low',
     })
@@ -315,6 +381,7 @@ async function submitForm() {
           pinyin: form.pinyin || undefined,
           meaning: form.meaning,
           example: form.example || undefined,
+          origin: form.origin || undefined,
           category_id: form.category_id,
         })
         ElMessage.success('更新成功')
@@ -325,6 +392,7 @@ async function submitForm() {
           category_id: form.category_id!,
           pinyin: form.pinyin || undefined,
           example: form.example || undefined,
+          origin: form.origin || undefined,
           risk_level: form.risk_level,
         })
         ElMessage.success('创建成功')
@@ -437,6 +505,73 @@ async function batchDelete() {
     selectedRows.value = []
     loadList()
   } catch {}
+}
+
+// ---- 批量导入 ----
+const importVisible = ref(false)
+const importStep = ref(0)
+const importRows = ref<any[]>([])
+const importLoading = ref(false)
+const importResult = reactive({
+  success_count: 0,
+  skipped_count: 0,
+  failed_count: 0,
+  failures: [] as Array<{ row: number; word: string; reason: string }>,
+})
+
+function openImport() {
+  importStep.value = 0
+  importRows.value = []
+  Object.assign(importResult, { success_count: 0, skipped_count: 0, failed_count: 0, failures: [] })
+  importVisible.value = true
+}
+
+async function onFileChange(file: any) {
+  try {
+    const rows = await parseImportFile(file.raw)
+    if (!rows.length) {
+      ElMessage.warning('文件无数据')
+      return
+    }
+    importRows.value = rows
+      .map((r: Record<string, any>) => ({
+        word: (r.word || '').toString().trim(),
+        meaning: (r.meaning || '').toString().trim(),
+        category_name: (r.category_name || '').toString().trim(),
+        pinyin: r.pinyin ? r.pinyin.toString().trim() : undefined,
+        risk_level: r.risk_level ? r.risk_level.toString().trim() : 'low',
+        example: r.example ? r.example.toString().trim() : undefined,
+      }))
+      .filter((r: any) => r.word && r.meaning && r.category_name)
+    if (!importRows.value.length) {
+      ElMessage.warning('有效数据为 0，请检查必填列：word / meaning / category_name')
+      return
+    }
+    importStep.value = 1
+  } catch (e: any) {
+    ElMessage.error(e.message || '文件解析失败')
+  }
+}
+
+async function doImport() {
+  importLoading.value = true
+  try {
+    const data: any = await wordApi.batchCreate(importRows.value)
+    Object.assign(importResult, data)
+    importStep.value = 2
+    if (data.success_count > 0) {
+      ElMessage.success(`成功导入 ${data.success_count} 条词条`)
+      loadList()
+    }
+  } catch (e: any) {
+    ElMessage.error(e.message || '导入失败')
+  } finally {
+    importLoading.value = false
+  }
+}
+
+function downloadTemplate() {
+  downloadWordImportTemplate()
 }
 
 onMounted(() => {
