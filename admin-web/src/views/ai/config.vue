@@ -93,12 +93,28 @@
                 :value="m.id"
               />
             </el-select>
+            <!-- 敏感字段（API Key 等）：密码框 + 显隐切换 -->
+            <el-input
+              v-else-if="item.is_sensitive"
+              v-model="editValues[item.key]"
+              type="password"
+              placeholder="输入新值以替换（留空不修改）"
+              show-password
+            />
+            <!-- 翻译系统提示词：大文本框 -->
+            <el-input
+              v-else-if="item.key === 'translate_system_prompt'"
+              v-model="editValues[item.key]"
+              type="textarea"
+              :rows="15"
+              placeholder="System Prompt 全文，留空使用默认值"
+              style="font-family: monospace; font-size: 13px"
+            />
+            <!-- 非敏感字段（url/model/temperature 等）：普通文本框 -->
             <el-input
               v-else
               v-model="editValues[item.key]"
-              :type="item.is_sensitive && !revealSecret[item.key] ? 'password' : 'text'"
-              :placeholder="item.is_sensitive ? '输入新值以替换（留空不修改）' : ''"
-              show-password
+              type="text"
             />
             <div class="config-meta">
               <el-tag size="small" :type="item.is_sensitive ? 'danger' : 'info'">
@@ -110,6 +126,39 @@
           </div>
         </el-form-item>
       </el-form>
+
+      <!-- 规则预览卡片 -->
+      <el-collapse style="margin-top: 16px">
+        <el-collapse-item title="收发规则预览（发送给 AI 的内容 / AI 返回的结构）" name="rules">
+          <div v-loading="promptLoading">
+            <h4 class="rule-section-title">一、发送规则（User Prompt 模板）</h4>
+            <p class="rule-desc">每次翻译时，系统会按以下模板组装 User Prompt 发送给 DeepSeek：</p>
+            <pre class="rule-code-block">{{ promptTemplate.user_prompt_template }}</pre>
+            <h4 class="rule-section-title" style="margin-top: 12px">占位符说明</h4>
+            <el-table :data="promptTemplate.placeholders" border size="small" style="width: 100%">
+              <el-table-column prop="name" label="占位符" width="180" />
+              <el-table-column prop="desc" label="说明" />
+            </el-table>
+
+            <h4 class="rule-section-title" style="margin-top: 16px">二、接收规则（AI 返回 JSON 结构）</h4>
+            <p class="rule-desc">AI 必须返回符合以下结构的 JSON，系统解析后展示给用户：</p>
+            <el-table :data="promptTemplate.response_fields" border size="small" style="width: 100%">
+              <el-table-column prop="field" label="字段" width="160" />
+              <el-table-column prop="type" label="类型" width="100" />
+              <el-table-column prop="desc" label="说明" />
+            </el-table>
+
+            <h4 class="rule-section-title" style="margin-top: 16px">三、当前 System Prompt</h4>
+            <el-tag v-if="promptTemplate.is_default" type="info" size="small" style="margin-bottom: 8px">
+              当前使用默认 Prompt（未自定义）
+            </el-tag>
+            <el-tag v-else type="success" size="small" style="margin-bottom: 8px">
+              当前使用自定义 Prompt
+            </el-tag>
+            <pre class="rule-code-block">{{ promptTemplate.system_prompt }}</pre>
+          </div>
+        </el-collapse-item>
+      </el-collapse>
 
       <!-- 测试结果 -->
       <el-dialog v-model="testResultVisible" title="AI 连接测试结果" width="500px">
@@ -175,6 +224,26 @@ const migrateLoading = ref(false)
 
 // 模型下拉选项
 const modelOptions = ref<any[]>([])
+
+// 规则预览
+const promptLoading = ref(false)
+const promptTemplate = ref<any>({
+  system_prompt: '',
+  is_default: true,
+  user_prompt_template: '',
+  placeholders: [],
+  response_fields: [],
+})
+
+async function loadPromptTemplate() {
+  promptLoading.value = true
+  try {
+    promptTemplate.value = await aiConfigApi.getPromptTemplate()
+  } catch {
+  } finally {
+    promptLoading.value = false
+  }
+}
 
 async function loadConfig() {
   loading.value = true
@@ -294,6 +363,7 @@ onMounted(() => {
   loadBalance()
   loadDeprecation()
   loadModels()
+  loadPromptTemplate()
 })
 </script>
 
@@ -377,5 +447,30 @@ onMounted(() => {
 }
 .deprecation-body {
   margin-top: 8px;
+}
+.rule-section-title {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+}
+.rule-desc {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: #606266;
+}
+.rule-code-block {
+  margin: 0;
+  padding: 12px;
+  background: var(--el-fill-color-light);
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #303133;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 300px;
+  overflow-y: auto;
 }
 </style>

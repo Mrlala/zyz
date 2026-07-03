@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from core.database import get_db
 from core.rbac import require_permission
-from core.security import hash_password
+from core.security import hash_password, validate_password_strength
 from models.admin import AdminAccount, Role
 from schemas import BaseResponse
 
@@ -103,8 +103,9 @@ async def create_account(
     if role is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="角色不存在")
     # 密码强度校验
-    if not (any(c.isdigit() for c in body.password) and any(c.isalpha() for c in body.password)):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="密码需至少包含数字和字母")
+    ok, msg = validate_password_strength(body.password)
+    if not ok:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=msg)
 
     account = AdminAccount(
         username=body.username,
@@ -193,8 +194,9 @@ async def reset_password(
     account = db.get(AdminAccount, account_id)
     if account is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="账号不存在")
-    if not (any(c.isdigit() for c in body.new_password) and any(c.isalpha() for c in body.new_password)):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="密码需至少包含数字和字母")
+    ok, msg = validate_password_strength(body.new_password)
+    if not ok:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=msg)
 
     account.password_hash = hash_password(body.new_password)
     account.must_change_password = True

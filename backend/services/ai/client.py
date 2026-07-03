@@ -234,7 +234,7 @@ class AIClient:
             return f"余额不足（402）: {resp.text[:200]}"
 
     async def translate(
-        self, text: str, matched_words: list[dict[str, Any]]
+        self, text: str, matched_words: list[dict[str, Any]], db: Any = None
     ) -> dict[str, Any]:
         """翻译入口：构建 Prompt 并调用大模型，返回结构化结果。
 
@@ -242,14 +242,15 @@ class AIClient:
 
         :param text: 待翻译原文
         :param matched_words: 关键词匹配器命中的词库词条列表
+        :param db: 数据库会话，用于读取自定义 System Prompt
         :return: AI 结构化结果字典
         """
-        system_prompt, user_prompt = BUILD_TRANSLATE_PROMPT(text, matched_words)
+        system_prompt, user_prompt = BUILD_TRANSLATE_PROMPT(text, matched_words, db)
         # 翻译场景用默认 model（flash），不传 model_override
         return await self.chat(system_prompt, user_prompt)
 
     async def risk_review(
-        self, text: str, matched_words: list[dict[str, Any]]
+        self, text: str, matched_words: list[dict[str, Any]], db: Any = None
     ) -> dict[str, Any]:
         """风险复审入口：用 deepseek-v4-pro 模型做高精度风险判定。
 
@@ -258,9 +259,10 @@ class AIClient:
 
         :param text: 待复审原文
         :param matched_words: 关键词匹配器命中的词库词条列表
+        :param db: 数据库会话，用于读取自定义 System Prompt
         :return: AI 结构化结果字典（含 risk 字段）
         """
-        system_prompt, user_prompt = BUILD_TRANSLATE_PROMPT(text, matched_words)
+        system_prompt, user_prompt = BUILD_TRANSLATE_PROMPT(text, matched_words, db)
         try:
             # 风险复审强制用 pro 模型（高精度）
             return await self.chat(system_prompt, user_prompt, model_override="deepseek-v4-pro")

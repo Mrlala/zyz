@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from api.dependencies import get_current_user_required
 from core.database import get_db
+from core.sensitive_filter import contains_sensitive, is_sensitive_filter_enabled
 from models.category import Category
 from models.submission import Submission
 from models.user import User
@@ -28,6 +29,15 @@ async def create_submission(
     user: User = Depends(get_current_user_required),
 ) -> BaseResponse:
     """提交新词条（进入 pending 队列等待审核）。"""
+    # 敏感词过滤：检查词条名、释义、例句
+    if is_sensitive_filter_enabled():
+        combined_text = f"{request.word} {request.definition or ''} {request.example or ''}"
+        if contains_sensitive(combined_text):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="提交内容包含敏感词，请修改后重试",
+            )
+
     # 校验词条是否已存在
     existing = db.execute(
         select(Word).where(Word.word == request.word, Word.deleted_at.is_(None))

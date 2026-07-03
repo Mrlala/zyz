@@ -13,6 +13,7 @@
  */
 import { BASE_URL, REQUEST_TIMEOUT } from '@/config/env'
 import storage from '@/utils/storage'
+import { tryMock } from './mock'
 
 // Token 与设备 ID 的本地存储键
 const TOKEN_KEY = 'zyz_token'
@@ -95,6 +96,31 @@ function request(options) {
   }
 
   return new Promise((resolve, reject) => {
+    // 离线演示模式：通过环境变量 VITE_OFFLINE_DEMO=on 或 storage 标记开启
+    // 默认生产环境走真实请求，仅在显式开启离线模式时才走 mock
+    const offlineMode = import.meta.env.VITE_OFFLINE_DEMO === 'on' || storage.get('zyz_offline_demo') === true
+    if (offlineMode) {
+      tryMock(`${BASE_URL}${url}`, method, data).then((mockResp) => {
+        if (mockResp !== null) {
+          if (mockResp.code !== undefined && mockResp.code !== 0) {
+            const msg = mockResp.message || '请求失败'
+            if (!silent) showError(msg)
+            const err = new Error(msg)
+            err.statusCode = mockResp.status || 400
+            reject(err)
+            return
+          }
+          resolve(mockResp.data !== undefined ? mockResp.data : mockResp)
+          return
+        }
+        // 未匹配 mock，继续走真实请求
+        doRequest()
+      })
+      return
+    }
+    doRequest()
+
+    function doRequest() {
     uni.request({
       url: `${BASE_URL}${url}`,
       method,
@@ -145,6 +171,7 @@ function request(options) {
         reject(new Error(err.errMsg || '网络异常'))
       }
     })
+    } // end doRequest
   })
 }
 

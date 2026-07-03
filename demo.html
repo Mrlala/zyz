@@ -1,0 +1,1482 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>中译中 · 离线演示</title>
+<style>
+  :root {
+    --primary: #FE2C55;
+    --primary-light: #FF6B81;
+    --cyan: #25F4EE;
+    --success: #10B981;
+    --warning: #F59E0B;
+    --danger: #EF4444;
+    --info: #3B82F6;
+    --text-primary: #111827;
+    --text-regular: #374151;
+    --text-secondary: #6B7280;
+    --text-tertiary: #9CA3AF;
+    --bg-page: #F7F8FA;
+    --bg-card: #FFFFFF;
+    --bg-sunken: #F3F4F6;
+    --bg-user-bubble: #FE2C55;
+    --border-color: #E5E7EB;
+    --border-light: #F3F4F6;
+    --gradient-primary: linear-gradient(135deg, #FE2C55, #25F4EE);
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+    --shadow-md: 0 3px 12px rgba(0, 0, 0, 0.07);
+    --shadow-input: 0 -2px 12px rgba(0, 0, 0, 0.06);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    color: var(--text-primary);
+    background: #eef0f4;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 0;
+    background: radial-gradient(circle at 30% 20%, #fbe4ea 0%, #eef0f4 55%);
+  }
+  .device {
+    position: relative;
+    width: 390px;
+    height: 844px;
+    max-height: calc(100vh - 40px);
+    background: var(--bg-page);
+    border-radius: 44px;
+    box-shadow: 0 30px 80px rgba(17,24,39,0.28), 0 0 0 11px #1b1c1e, 0 0 0 13px #2a2b2d;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  @media (max-width: 480px) {
+    body { padding: 0; background: var(--bg-page); }
+    .device { width: 100vw; height: 100vh; max-height: 100vh; border-radius: 0; box-shadow: none; }
+  }
+  /* 状态栏 */
+  .statusbar {
+    flex: 0 0 auto;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    font-size: 14px;
+    font-weight: 600;
+    z-index: 5;
+  }
+  .statusbar .right { display: flex; align-items: center; gap: 5px; }
+  .statusbar svg { display: block; }
+
+  .screen { flex: 1 1 auto; position: relative; overflow: hidden; }
+  .page {
+    position: absolute; inset: 0;
+    overflow-y: auto; overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    display: none; flex-direction: column;
+    background: var(--bg-page);
+    animation: fade .22s ease;
+  }
+  .page.active { display: flex; }
+  @keyframes fade { from { opacity: .4; } to { opacity: 1; } }
+  .page::-webkit-scrollbar { width: 0; }
+
+  /* 顶部栏（真实：左菜单 + 右加号，无居中标题） */
+  .chat-header {
+    flex: 0 0 auto;
+    background: var(--bg-card);
+  }
+  .chat-header__inner {
+    height: 54px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+  }
+  .chat-header__btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+  .chat-header__btn--sunken { background: var(--bg-sunken); }
+
+  /* 通用顶部栏（带返回+标题，子页用） */
+  .top-bar { flex: 0 0 auto; background: var(--bg-page); }
+  .top-bar__inner {
+    height: 54px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 16px;
+  }
+  .top-bar__btn {
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+  .top-bar__btn--sunken { background: var(--bg-sunken); border-radius: 50%; }
+  .top-bar__title { font-size: 16px; font-weight: 600; color: var(--text-primary); }
+  .top-bar__placeholder { width: 32px; }
+
+  /* 翻译页主体 */
+  .chat-body { flex: 1; padding: 16px; overflow-y: auto; }
+  .chat-body::-webkit-scrollbar { width: 0; }
+
+  /* 空状态 */
+  .chat-empty {
+    display: flex; flex-direction: column;
+    justify-content: center;
+    min-height: 100%;
+    padding: 24px 0;
+  }
+  .chat-empty__center {
+    flex: 1;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+  }
+  .chat-empty__title {
+    font-size: 26px; font-weight: 700; color: var(--text-primary);
+  }
+  .chat-empty__subtitle {
+    margin-top: 8px; font-size: 15px; color: var(--text-tertiary); line-height: 1.6;
+  }
+  .chat-empty__modes { display: flex; gap: 8px; margin-top: 16px; }
+  .chat-empty__mode {
+    padding: 8px 16px; border-radius: 10px;
+    font-size: 13px; font-weight: 500;
+    background: var(--bg-card); color: var(--text-secondary);
+    border: 1px solid var(--border-color); cursor: pointer;
+  }
+  .chat-empty__mode--active {
+    background: var(--primary); color: #fff; border-color: var(--primary);
+  }
+  .chat-empty__hot { margin-top: 32px; display: flex; flex-direction: column; align-items: center; }
+  .chat-empty__hot-title { font-size: 12px; color: var(--text-tertiary); margin-bottom: 12px; }
+  .chat-empty__hot-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; max-width: 320px; }
+  .hot-chip {
+    padding: 6px 14px; border-radius: 9999px;
+    background: rgba(254, 44, 85, 0.08); color: var(--primary);
+    font-size: 13px; font-weight: 500; cursor: pointer;
+  }
+  .hot-chip:active { background: rgba(254, 44, 85, 0.16); }
+
+  /* 用户消息气泡 */
+  .chat-user-msg { display: flex; justify-content: flex-end; margin-bottom: 16px; }
+  .chat-user-msg__bubble {
+    display: inline-block; max-width: 80%;
+    padding: 10px 16px;
+    background: var(--bg-user-bubble); color: #fff;
+    font-size: 14px; line-height: 1.6;
+    border-radius: 18px 18px 4px 18px;
+    word-break: break-word;
+  }
+
+  /* 助手结果头 */
+  .chat-result__header { color: var(--text-tertiary); font-size: 12px; margin-bottom: 12px; }
+
+  /* Hero 卡片 */
+  .hero-card {
+    background: var(--bg-card);
+    border-radius: 16px; padding: 16px;
+    box-shadow: var(--shadow-sm);
+    background-image: linear-gradient(135deg, rgba(254, 44, 85, 0.03), rgba(37, 244, 238, 0.02));
+  }
+  .hero-card__header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .hero-card__title-wrap { display: flex; align-items: center; gap: 8px; }
+  .hero-card__title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+  .hero-card__tag { font-size: 11px; color: var(--primary); background: rgba(254, 44, 85, 0.08); border-radius: 6px; padding: 2px 8px; }
+  .hero-card__body { font-size: 15px; color: var(--text-primary); line-height: 1.7; }
+  .hero-card__actions {
+    display: flex; gap: 16px; margin-top: 12px; padding-top: 12px;
+    border-top: 1px solid var(--border-light);
+  }
+  .hero-card__action { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+  .hero-card__action-text { font-size: 12px; color: var(--text-secondary); }
+  .hero-card__action-text--active { color: var(--primary); }
+
+  /* 命中词条 */
+  .keyword-list { margin-top: 16px; }
+  .keyword-list__header { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+  .keyword-list__title { font-size: 12px; font-weight: 600; color: var(--text-tertiary); }
+  .keyword-list__item { padding: 10px 0; border-bottom: 1px solid var(--border-light); }
+  .keyword-list__item--last { border-bottom: none; }
+  .keyword-list__word { display: block; font-size: 14px; font-weight: 600; color: var(--primary); line-height: 1.4; cursor: pointer; }
+  .keyword-list__meaning { display: block; font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-top: 4px; }
+
+  /* Tier3 三小卡（白色） */
+  .tier3-cards { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+  .tier3-card {
+    background: var(--bg-card); border-radius: 12px; padding: 14px;
+    box-shadow: var(--shadow-xs);
+  }
+  .tier3-card--risk { border-left: 3px solid var(--warning); }
+  .tier3-card__header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .tier3-card__title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+  .tier3-card__body { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+  .tier3-card__quote { background: var(--bg-sunken); border-radius: 8px; padding: 10px; }
+  .tier3-card__quote-text { font-size: 13px; color: var(--text-primary); line-height: 1.6; }
+
+  /* 标签行 */
+  .tag-rows { margin-top: 16px; }
+  .tag-row__header { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+  .tag-row__title { font-size: 12px; font-weight: 600; color: var(--text-tertiary); }
+  .tag-row__tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .tag-row__tag {
+    background: var(--bg-sunken); color: var(--text-secondary);
+    font-size: 13px; border-radius: 6px; padding: 4px 10px;
+  }
+  .tag-row__tag--link { cursor: pointer; }
+
+  /* 反馈按钮 */
+  .feedback-row { display: flex; gap: 16px; margin-top: 20px; margin-bottom: 8px; }
+  .feedback-row__btn { padding: 4px 8px; border-radius: 8px; cursor: pointer; color: var(--text-secondary); }
+  .feedback-row__btn:active { background: var(--bg-sunken); }
+
+  /* 加载状态 */
+  .chat-loading {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 40px 0;
+  }
+  .chat-loading__spinner {
+    width: 32px; height: 32px;
+    border: 3px solid var(--border-color);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: chat-spin 0.8s linear infinite;
+    margin-bottom: 12px;
+  }
+  .chat-loading__text { font-size: 14px; color: var(--text-secondary); }
+  @keyframes chat-spin { to { transform: rotate(360deg); } }
+
+  /* 输入栏（真实样式） */
+  .chat-input {
+    flex: 0 0 auto;
+    padding: 8px 16px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(to top, var(--bg-page) 70%, transparent);
+    position: relative;
+    z-index: 20;
+  }
+  .chat-input__box {
+    display: flex; align-items: flex-end; gap: 8px;
+    background: var(--bg-card); border-radius: 20px;
+    padding: 8px 12px; box-shadow: var(--shadow-sm);
+  }
+  .chat-input__plus {
+    flex-shrink: 0; width: 32px; height: 32px;
+    border-radius: 50%; background: var(--bg-sunken);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: background-color 0.2s;
+  }
+  .chat-input__plus--active { background: var(--primary); }
+  .chat-input__plus--active svg { color: #fff !important; }
+  .chat-input__textarea {
+    flex: 1; min-height: 20px; max-height: 120px;
+    font-size: 14px; color: var(--text-primary); line-height: 1.5;
+    background: transparent; border: 0; outline: 0; resize: none;
+    font-family: inherit;
+  }
+  .chat-input__send {
+    flex-shrink: 0; width: 36px; height: 36px;
+    border-radius: 50%; background: var(--primary);
+    display: flex; align-items: center; justify-content: center;
+    border: 0; cursor: pointer;
+  }
+  .chat-input__send--disabled { opacity: 0.5; pointer-events: none; }
+
+  /* +号浮窗 */
+  .chat-popover {
+    position: absolute; bottom: calc(100% + 8px); left: 12px;
+    width: 260px; background: var(--bg-card);
+    border-radius: 12px; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+    padding: 12px; z-index: 35;
+    display: none;
+  }
+  .chat-popover--open { display: block; }
+  .chat-popover__arrow {
+    position: absolute; bottom: -6px; left: 20px;
+    width: 12px; height: 12px; background: var(--bg-card);
+    transform: rotate(45deg); box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.05);
+  }
+  .chat-popover__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .chat-popover__item {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    padding: 10px 4px; border-radius: 10px; cursor: pointer;
+  }
+  .chat-popover__item:active { background: var(--bg-sunken); }
+  .chat-popover__icon {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(254, 44, 85, 0.08);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--primary);
+  }
+  .chat-popover__label { font-size: 12px; color: var(--text-secondary); }
+  .chat-popover-mask {
+    position: fixed; inset: 0; z-index: 29; display: none;
+  }
+  .chat-popover-mask--open { display: block; }
+
+  /* 抽屉 */
+  .drawer-mask {
+    position: fixed; inset: 0; background: rgba(0, 0, 0, 0.3);
+    z-index: 40; opacity: 0; pointer-events: none;
+    transition: opacity 0.25s;
+  }
+  .drawer-mask--open { opacity: 1; pointer-events: auto; }
+  .drawer {
+    position: fixed; top: 0; bottom: 0; left: 0;
+    width: 85%; max-width: 320px;
+    background: #fff; box-shadow: 4px 0 24px rgba(0, 0, 0, 0.1);
+    border-radius: 0 20px 20px 0;
+    z-index: 41; display: flex; flex-direction: column;
+    transform: translateX(-100%);
+    transition: transform 0.25s cubic-bezier(0.3, 0, 0, 1);
+  }
+  .drawer--open { transform: translateX(0); }
+  .drawer__header { display: flex; align-items: flex-start; justify-content: space-between; padding: 20px 20px 12px; }
+  .drawer__brand-name { display: block; font-size: 20px; font-weight: 700; color: var(--text-primary); }
+  .drawer__brand-sub { display: block; font-size: 13px; color: var(--text-tertiary); margin-top: 2px; }
+  .drawer__close { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .drawer__search {
+    display: flex; align-items: center; height: 40px;
+    background: var(--bg-sunken); border-radius: 10px;
+    padding: 0 12px; margin: 0 20px 12px; gap: 8px;
+  }
+  .drawer__search-input { flex: 1; font-size: 14px; color: var(--text-primary); background: transparent; border: 0; outline: 0; font-family: inherit; }
+  .drawer__new-chat {
+    display: flex; align-items: center; gap: 12px;
+    height: 40px; margin: 0 20px 16px;
+    border-radius: 10px; background: #fff;
+    border: 1px solid var(--border-color); padding: 0 16px;
+    cursor: pointer;
+  }
+  .drawer__new-chat-text { font-size: 14px; color: var(--text-secondary); }
+  .drawer__quick-links { display: flex; gap: 8px; margin: 0 20px 8px; }
+  .drawer__quick-link {
+    flex: 1; display: flex; align-items: center; gap: 6px;
+    height: 34px; padding: 0 12px; border-radius: 8px;
+    background: var(--bg-sunken); cursor: pointer;
+    font-size: 13px; color: var(--text-secondary);
+  }
+  .drawer__content { flex: 1; overflow-y: auto; }
+  .drawer__group-title { font-size: 11px; font-weight: 600; color: var(--text-tertiary); letter-spacing: 0.05em; padding: 16px 20px 8px; }
+  .drawer__menu { border-top: 1px solid var(--border-light); }
+  .drawer__menu-item {
+    display: flex; align-items: center; gap: 12px;
+    height: 48px; padding: 0 20px;
+    border-bottom: 1px solid var(--border-light); cursor: pointer;
+  }
+  .drawer__menu-item--active { background: rgba(254, 44, 85, 0.04); }
+  .drawer__menu-text { flex: 1; font-size: 14px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .drawer__menu-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .drawer__menu-time { font-size: 12px; color: var(--text-tertiary); }
+  .drawer__footer { flex-shrink: 0; border-top: 1px solid var(--border-color); }
+  .drawer__user { display: flex; align-items: center; gap: 12px; height: 56px; padding: 0 20px; cursor: pointer; }
+  .drawer__avatar-wrap { flex-shrink: 0; padding: 2px; border-radius: 50%; background: var(--gradient-primary); }
+  .drawer__avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--bg-sunken); display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .drawer__user-info { flex: 1; overflow: hidden; }
+  .drawer__user-name { display: block; font-size: 14px; font-weight: 500; color: var(--text-primary); }
+  .drawer__user-sub { display: block; font-size: 12px; color: var(--text-tertiary); }
+  .drawer__settings-btn { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+
+  /* 词库页 */
+  .search-bar {
+    display: flex; align-items: center; gap: 8px;
+    height: 36px; margin: 12px 16px 8px; padding: 0 12px;
+    background: var(--bg-sunken); border-radius: 10px; cursor: pointer;
+  }
+  .search-bar__placeholder { font-size: 13px; color: var(--text-tertiary); }
+  .category-scroll { white-space: nowrap; padding: 8px 16px; overflow-x: auto; }
+  .category-scroll::-webkit-scrollbar { display: none; }
+  .category-scroll__list { display: inline-flex; gap: 8px; }
+  .category-pill {
+    flex-shrink: 0; display: inline-flex; align-items: center;
+    padding: 6px 14px; border-radius: 9999px;
+    font-size: 12px; font-weight: 500;
+    background: var(--bg-card); color: var(--text-secondary);
+    border: 1px solid var(--border-color); white-space: nowrap; cursor: pointer;
+  }
+  .category-pill--active { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .sort-bar { display: flex; align-items: center; justify-content: space-between; padding: 4px 16px 8px; }
+  .sort-bar__options { display: flex; gap: 16px; }
+  .sort-bar__opt { font-size: 13px; color: var(--text-tertiary); cursor: pointer; }
+  .sort-bar__opt--active { color: var(--text-primary); font-weight: 600; }
+  .sort-extra { display: flex; align-items: center; gap: 2px; font-size: 12px; font-weight: 500; color: var(--primary); cursor: pointer; }
+  .word-list { padding: 8px 16px 32px; display: flex; flex-direction: column; gap: 8px; }
+
+  /* WordCard */
+  .word-card { display: flex; background: var(--bg-card); border-radius: 12px; transition: transform 0.2s; cursor: pointer; }
+  .word-card:active { transform: scale(0.98); }
+  .word-card--featured { box-shadow: var(--shadow-sm); overflow: hidden; }
+  .word-card--default { align-items: center; box-shadow: var(--shadow-xs); padding: 12px 16px; }
+  .word-card__bar { width: 3px; flex-shrink: 0; background: var(--gradient-primary); }
+  .word-card__body { flex: 1; display: flex; align-items: flex-start; justify-content: space-between; min-width: 0; }
+  .word-card--featured .word-card__body { padding: 16px; }
+  .word-card__main { flex: 1; min-width: 0; }
+  .word-card__header { display: flex; align-items: center; flex-wrap: wrap; margin-bottom: 8px; gap: 8px; }
+  .word-card__word { font-size: 16px; font-weight: 600; color: var(--text-primary); margin-right: 4px; }
+  .word-card--featured .word-card__word { font-size: 18px; }
+  .word-card__tags { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .word-card__heat { display: inline-flex; align-items: center; gap: 2px; padding: 2px 8px; border-radius: 9999px; background: rgba(245, 158, 11, 0.12); }
+  .word-card__heat-text { font-size: 13px; line-height: 1.4; color: var(--warning); }
+  .word-card__meaning { font-size: 14px; color: var(--text-secondary); line-height: 1.5; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  .word-card__fav { flex-shrink: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; margin-left: 8px; cursor: pointer; }
+
+  /* WordTag / RiskBadge */
+  .word-tag { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 6px; font-size: 11px; line-height: 1.4; background: var(--bg-sunken); color: var(--text-secondary); }
+  .risk-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 9999px; font-size: 11px; line-height: 1.4; }
+  .risk-badge--low { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+  .risk-badge--medium { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
+  .risk-badge--high { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+
+  /* 通用空状态 */
+  .empty-state { padding: 48px 32px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .empty-state__icon { margin-bottom: 12px; color: var(--text-tertiary); opacity: 0.5; }
+  .empty-state__text { font-size: 14px; color: var(--text-secondary); margin-bottom: 4px; }
+  .empty-state__sub { font-size: 12px; color: var(--text-tertiary); }
+
+  /* 搜索页 */
+  .search-page-bar { display: flex; align-items: center; gap: 8px; height: 40px; margin: 12px 16px; padding: 0 12px; background: var(--bg-sunken); border-radius: 10px; }
+  .search-page-bar input { flex: 1; border: 0; outline: 0; background: transparent; font-size: 14px; font-family: inherit; color: var(--text-primary); }
+  .search-cancel { font-size: 14px; color: var(--primary); padding: 0 4px; cursor: pointer; }
+  .search-section { padding: 0 16px; }
+  .search-section__title { font-size: 12px; color: var(--text-tertiary); margin: 16px 0 10px; font-weight: 600; }
+  .search-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .search-chip { padding: 6px 12px; background: var(--bg-card); border-radius: 9999px; font-size: 13px; color: var(--text-secondary); border: 1px solid var(--border-color); cursor: pointer; }
+
+  /* 热词排行 */
+  .period-tabs { display: flex; gap: 8px; padding: 12px 16px; }
+  .period-tab { padding: 6px 14px; border-radius: 9999px; font-size: 12px; color: var(--text-secondary); background: var(--bg-card); border: 1px solid var(--border-color); cursor: pointer; }
+  .period-tab--active { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .podium { display: flex; align-items: flex-end; justify-content: center; gap: 10px; padding: 10px 14px 18px; }
+  .podium-item { display: flex; flex-direction: column; align-items: center; flex: 1; cursor: pointer; }
+  .podium-item .pd-rank { font-size: 20px; margin-bottom: 4px; }
+  .podium-item .pd-bar { width: 100%; border-radius: 12px 12px 0 0; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 20px; padding: 8px 0; }
+  .podium-item.first .pd-bar { height: 80px; background: linear-gradient(180deg, #FE2C55, #ff7a92); }
+  .podium-item.second .pd-bar { height: 60px; background: linear-gradient(180deg, #9CA3AF, #c5c9d0); }
+  .podium-item.third .pd-bar { height: 46px; background: linear-gradient(180deg, #d97706, #f0a830); }
+  .podium-item .pd-word { font-size: 13px; font-weight: 700; margin-top: 6px; }
+  .podium-item .pd-hot { font-size: 11px; color: var(--primary); font-weight: 600; }
+  .rank-item { display: flex; align-items: center; gap: 12px; background: var(--bg-card); border-radius: 12px; padding: 12px 14px; margin: 0 16px 8px; box-shadow: var(--shadow-xs); cursor: pointer; }
+  .rank-item .ri-num { font-size: 18px; font-weight: 800; width: 28px; text-align: center; color: var(--text-tertiary); }
+  .rank-item .ri-num.top { color: var(--primary); }
+  .rank-item .ri-info { flex: 1; min-width: 0; }
+  .rank-item .ri-word { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+  .rank-item .ri-meaning { font-size: 12px; color: var(--text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rank-item .ri-trend { font-size: 13px; font-weight: 700; }
+  .rank-item .ri-trend.up { color: var(--success); }
+  .rank-item .ri-trend.down { color: var(--info); }
+  .rank-item .ri-trend.flat { color: var(--text-tertiary); }
+
+  /* 词条详情 */
+  .detail-hero { background: var(--bg-card); padding: 20px 16px; box-shadow: var(--shadow-xs); }
+  .detail-hero__word { font-size: 24px; font-weight: 700; }
+  .detail-hero__pinyin { font-size: 13px; color: var(--text-tertiary); margin-top: 2px; }
+  .detail-hero__tags { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+  .detail-section { padding: 16px; border-bottom: 1px solid var(--border-light); }
+  .detail-section__label { font-size: 12px; color: var(--text-tertiary); font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .detail-section__content { font-size: 14px; color: var(--text-primary); line-height: 1.65; }
+  .detail-section__example { background: var(--bg-sunken); border-radius: 8px; padding: 12px 14px; font-size: 13px; color: var(--text-regular); border-left: 3px solid var(--primary); }
+  .detail-actions { display: flex; gap: 10px; padding: 16px; }
+  .detail-actions__btn { flex: 1; padding: 12px; border-radius: 12px; border: 0; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .detail-actions__btn--primary { background: var(--primary); color: #fff; }
+  .detail-actions__btn--ghost { background: var(--bg-card); color: var(--text-secondary); border: 1px solid var(--border-color); }
+
+  /* 设置页 */
+  .settings-body { padding: 12px 16px 32px; }
+  .group-card { margin-top: 12px; background: var(--bg-card); border-radius: 12px; box-shadow: var(--shadow-xs); overflow: hidden; }
+  .group-title { display: block; margin-top: 24px; margin-bottom: 8px; padding-left: 4px; font-size: 11px; color: var(--text-tertiary); }
+  .group-row { display: flex; align-items: center; justify-content: space-between; height: 52px; padding: 0 16px; cursor: pointer; }
+  .group-row:active { background: var(--bg-sunken); }
+  .group-row__label { font-size: 14px; color: var(--text-primary); }
+  .group-row__label--danger { color: var(--danger); }
+  .group-row__right { display: flex; align-items: center; gap: 8px; }
+  .group-row__value { font-size: 14px; color: var(--text-tertiary); }
+  .group-divider { height: 1px; background: var(--border-light); margin-left: 16px; }
+  .avatar-wrap { width: 40px; height: 40px; border-radius: 50%; padding: 2px; background: var(--gradient-primary); }
+  .avatar-inner { width: 100%; height: 100%; border-radius: 50%; background: var(--bg-sunken); display: flex; align-items: center; justify-content: center; }
+  .avatar-text { font-size: 15px; font-weight: 500; color: var(--text-secondary); }
+  .toggle-switch { position: relative; width: 44px; height: 24px; border-radius: 12px; background: var(--border-color); transition: background-color 0.2s ease; flex-shrink: 0; cursor: pointer; }
+  .toggle-switch--on { background: var(--primary); }
+  .toggle-knob { position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); transition: transform 0.2s ease; }
+  .toggle-switch--on .toggle-knob { transform: translateX(20px); }
+  .ai-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .ai-dot--on { background: var(--success); box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15); }
+  .ai-dot--off { background: var(--border-color); }
+  .logout-btn { margin-top: 24px; padding: 14px 0; text-align: center; font-size: 14px; font-weight: 500; color: var(--danger); cursor: pointer; }
+
+  /* 收藏 */
+  .fav-list { padding: 8px 16px 32px; display: flex; flex-direction: column; gap: 8px; }
+
+  /* 提交 */
+  .sub-tabs { display: flex; gap: 8px; padding: 12px 16px; }
+  .sub-tab { padding: 6px 14px; border-radius: 9999px; font-size: 12px; color: var(--text-secondary); background: var(--bg-card); border: 1px solid var(--border-color); cursor: pointer; }
+  .sub-tab--active { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .sub-list { padding: 0 16px 32px; display: flex; flex-direction: column; gap: 10px; }
+  .sub-card { background: var(--bg-card); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow-xs); }
+  .sub-card__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .sub-card__word { font-size: 15px; font-weight: 700; }
+  .sub-card__cat { font-size: 11px; color: var(--text-tertiary); font-weight: 400; margin-left: 6px; }
+  .status-badge { font-size: 11px; padding: 3px 9px; border-radius: 9999px; font-weight: 600; }
+  .status-badge--approved { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+  .status-badge--pending { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
+  .status-badge--rejected { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+  .sub-card__meaning { font-size: 13px; color: var(--text-secondary); line-height: 1.55; }
+  .sub-card__date { font-size: 11px; color: var(--text-tertiary); margin-top: 6px; }
+  .sub-card__reason { background: rgba(239, 68, 68, 0.06); border-radius: 8px; padding: 8px 10px; font-size: 12px; color: var(--danger); margin-top: 8px; border-left: 3px solid var(--danger); }
+
+  /* 成就 */
+  .achv-list { padding: 8px 16px 32px; display: flex; flex-direction: column; gap: 10px; }
+  .achv-card { display: flex; align-items: center; gap: 12px; background: var(--bg-card); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow-xs); }
+  .achv-card.unlocked .achv-card__icon { background: linear-gradient(135deg, #fef3c7, #fde68a); }
+  .achv-card.locked { opacity: 0.55; }
+  .achv-card__icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; background: var(--bg-sunken); flex-shrink: 0; }
+  .achv-card__info { flex: 1; }
+  .achv-card__name { font-size: 14px; font-weight: 600; }
+  .achv-card__desc { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+  .achv-card__status { font-size: 11px; padding: 3px 9px; border-radius: 9999px; font-weight: 600; }
+  .achv-card__status--done { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+  .achv-card__status--todo { background: var(--bg-sunken); color: var(--text-tertiary); }
+
+  .section-title { font-size: 12px; font-weight: 600; color: var(--text-tertiary); padding: 14px 20px 8px; }
+
+  /* toast */
+  .toast { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); background: rgba(17,24,39,0.85); color: #fff; font-size: 13px; padding: 8px 16px; border-radius: 9999px; z-index: 99; display: none; }
+
+  /* 登录页 */
+  .auth-page { background: var(--bg-page); min-height: 100%; display: flex; flex-direction: column; }
+  .auth-logo { text-align: center; padding: 60px 0 40px; }
+  .auth-logo__title { font-size: 28px; font-weight: 700; color: var(--text-primary); }
+  .auth-logo__sub { font-size: 13px; color: var(--text-tertiary); margin-top: 8px; }
+  .auth-form { padding: 0 24px; }
+  .auth-field { margin-bottom: 16px; }
+  .auth-field__label { font-size: 13px; color: var(--text-secondary); font-weight: 500; display: block; margin-bottom: 6px; }
+  .auth-field__input { width: 100%; height: 48px; border: 1px solid var(--border-color); border-radius: 12px; padding: 0 16px; font-size: 14px; font-family: inherit; outline: none; background: var(--bg-card); color: var(--text-primary); }
+  .auth-field__input:focus { border-color: var(--primary); }
+  .auth-btn { width: 100%; height: 48px; border-radius: 12px; border: 0; background: var(--primary); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 8px; }
+  .auth-switch { text-align: center; margin-top: 20px; font-size: 13px; color: var(--text-tertiary); }
+  .auth-switch b { color: var(--primary); cursor: pointer; font-weight: 500; }
+
+  /* 资料设置 */
+  .profile-avatar-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 16px 0 24px; }
+  .profile-avatar-opt { aspect-ratio: 1; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; cursor: pointer; border: 3px solid transparent; }
+  .profile-avatar-opt--selected { border-color: var(--primary); }
+</style>
+</head>
+<body>
+<div class="device">
+  <div class="statusbar">
+    <span id="clock">9:41</span>
+    <span class="right">
+      <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><rect x="0" y="6" width="3" height="5" rx="1"/><rect x="4.5" y="4" width="3" height="7" rx="1"/><rect x="9" y="2" width="3" height="9" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+      <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><path d="M8 2.5c2.1 0 4 .8 5.5 2.1l1.1-1.2C12.8 1.8 10.5 1 8 1S3.2 1.8 1.4 3.4l1.1 1.2C4 3.3 5.9 2.5 8 2.5z"/><path d="M8 6c1 0 1.9.4 2.6 1l1.1-1.2C10.6 5 9.4 4.5 8 4.5S5.4 5 4.3 5.8l1.1 1.2C6.1 6.4 7 6 8 6z"/><circle cx="8" cy="9" r="1.5"/></svg>
+      <svg width="24" height="11" viewBox="0 0 24 11" fill="none"><rect x="0.5" y="0.5" width="20" height="10" rx="2.5" stroke="currentColor" opacity="0.4"/><rect x="2" y="2" width="14" height="7" rx="1.2" fill="currentColor"/><rect x="21.5" y="3.5" width="1.5" height="4" rx="0.7" fill="currentColor" opacity="0.5"/></svg>
+    </span>
+  </div>
+
+  <div class="screen" id="screen">
+    <!-- ============ 翻译页（主页） ============ -->
+    <div class="page active" id="page-translate">
+      <div class="chat-header">
+        <div class="chat-header__inner">
+          <div class="chat-header__btn" onclick="openDrawer()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="14" y2="17"/></svg>
+          </div>
+          <div class="chat-header__btn chat-header__btn--sunken" onclick="handleHeaderNewChat()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </div>
+        </div>
+      </div>
+      <div class="chat-body" id="chatBody">
+        <div class="chat-empty" id="chatEmpty">
+          <div class="chat-empty__center">
+            <div class="chat-empty__title">中译中</div>
+            <div class="chat-empty__subtitle">看不懂的中文，翻成人话</div>
+            <div class="chat-empty__modes">
+              <div class="chat-empty__mode chat-empty__mode--active" data-mode="quick" onclick="switchMode(this)">快速解析</div>
+              <div class="chat-empty__mode" data-mode="deep" onclick="switchMode(this)">深度解析</div>
+              <div class="chat-empty__mode" data-mode="dict" onclick="switchMode(this)">词典模式</div>
+            </div>
+            <div class="chat-empty__hot">
+              <div class="chat-empty__hot-title">试试这些</div>
+              <div class="chat-empty__hot-chips" id="hotChips"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- 输入栏 -->
+      <div class="chat-input">
+        <div class="chat-input__box">
+          <div class="chat-input__plus" id="plusBtn" onclick="togglePlusMenu()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </div>
+          <textarea class="chat-input__textarea" id="chatInput" placeholder="输入黑话、梗、暗语…" maxlength="50" oninput="onInputChange()" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();handleTranslate()}"></textarea>
+          <button class="chat-input__send chat-input__send--disabled" id="sendBtn" onclick="handleTranslate()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+          </button>
+        </div>
+      <!-- +号浮窗遮罩 -->
+      <div class="chat-popover-mask" id="popoverMask" onclick="closePlusMenu()"></div>
+      <!-- +号浮窗 -->
+      <div class="chat-popover" id="popover">
+        <div class="chat-popover__arrow"></div>
+        <div class="chat-popover__grid">
+          <div class="chat-popover__item" onclick="closePlusMenu();navigate('dict')">
+            <div class="chat-popover__icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
+            <div class="chat-popover__label">词库</div>
+          </div>
+          <div class="chat-popover__item" onclick="closePlusMenu();navigate('hot')">
+            <div class="chat-popover__icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg></div>
+            <div class="chat-popover__label">热词排行</div>
+          </div>
+          <div class="chat-popover__item" onclick="closePlusMenu();navigate('history')">
+            <div class="chat-popover__icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg></div>
+            <div class="chat-popover__label">翻译历史</div>
+          </div>
+          <div class="chat-popover__item" onclick="closePlusMenu();navigate('favorites')">
+            <div class="chat-popover__icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></div>
+            <div class="chat-popover__label">收藏</div>
+          </div>
+          <div class="chat-popover__item" onclick="closePlusMenu();navigate('submissions')">
+            <div class="chat-popover__icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></div>
+            <div class="chat-popover__label">我的提交</div>
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+
+    <!-- ============ 词库页 ============ -->
+    <div class="page" id="page-dict">
+      <div class="top-bar">
+        <div class="top-bar__inner">
+          <div class="top-bar__btn" onclick="back()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </div>
+          <div class="top-bar__title">词库</div>
+          <div class="top-bar__btn top-bar__btn--sunken" onclick="navigate('search')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </div>
+        </div>
+      </div>
+      <div class="search-bar" onclick="navigate('search')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <span class="search-bar__placeholder">搜索词条、释义或例句</span>
+      </div>
+      <div class="category-scroll">
+        <div class="category-scroll__list" id="catPills"></div>
+      </div>
+      <div class="sort-bar">
+        <div class="sort-bar__options">
+          <div class="sort-bar__opt sort-bar__opt--active">热门</div>
+          <div class="sort-bar__opt">最新</div>
+          <div class="sort-bar__opt">名称</div>
+        </div>
+        <div class="sort-extra">分类专区 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FE2C55" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+      </div>
+      <div class="word-list" id="dictList"></div>
+    </div>
+
+    <!-- ============ 搜索页 ============ -->
+    <div class="page" id="page-search">
+      <div class="top-bar">
+        <div class="top-bar__inner">
+          <div class="top-bar__btn" onclick="back()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </div>
+          <div class="search-page-bar">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input id="searchInput" placeholder="搜索词条、释义或例句" oninput="onSearch(this.value)" />
+          </div>
+          <div class="search-cancel" onclick="back()">取消</div>
+        </div>
+      </div>
+      <div id="searchContent"></div>
+    </div>
+
+    <!-- ============ 热词排行 ============ -->
+    <div class="page" id="page-hot">
+      <div class="top-bar">
+        <div class="top-bar__inner">
+          <div class="top-bar__btn" onclick="back()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </div>
+          <div class="top-bar__title">热词排行</div>
+          <div class="top-bar__placeholder"></div>
+        </div>
+      </div>
+      <div class="period-tabs">
+        <div class="period-tab period-tab--active">今日</div>
+        <div class="period-tab">本周</div>
+        <div class="period-tab">本月</div>
+      </div>
+      <div class="podium" id="podium"></div>
+      <div id="rankList"></div>
+    </div>
+
+    <!-- ============ 翻译历史 ============ -->
+    <div class="page" id="page-history">
+      <div class="top-bar">
+        <div class="top-bar__inner">
+          <div class="top-bar__btn" onclick="back()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </div>
+          <div class="top-bar__title">翻译历史</div>
+          <div class="top-bar__placeholder"></div>
+        </div>
+      </div>
+      <div id="historyContent"></div>
+    </div>
+
+    <!-- ============ 收藏 ============ -->
+    <div class="page" id="page-favorites">
+      <div class="top-bar">
+        <div class="top-bar__inner">
+          <div class="top-bar__btn" onclick="back()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </div>
+          <div class="top-bar__title">我的收藏</div>
+          <div class="top-bar__placeholder"></div>
+        </div>
+      </div>
+      <div class="fav-list" id="favList"></div>
+    </div>
+
+    <!-- ============ 我的提交 ============ -->
+    <div class="page" id="page-submissions">
+      <div class="top-bar">
+        <div class="top-bar__inner">
+          <div class="top-bar__btn" onclick="back()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </div>
+          <div class="top-bar__title">我的提交</div>
+          <div class="top-bar__placeholder"></div>
+        </div>
+      </div>
+      <div class="sub-tabs">
+        <div class="sub-tab sub-tab--active">全部</div>
+        <div class="sub-tab">已通过</div>
+        <div class="sub-tab">审核中</div>
+        <div class="sub-tab">已驳回</div>
+      </div>
+      <div class="sub-list" id="subList"></div>
+    </div>
+
+    <!-- ============ 成就 ============ -->
+    <div class="page" id="page-achievements">
+      <div class="top-bar">
+        <div class="top-bar__inner">
+          <div class="top-bar__btn" onclick="back()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </div>
+          <div class="top-bar__title">我的成就</div>
+          <div class="top-bar__placeholder"></div>
+        </div>
+      </div>
+      <div class="achv-list" id="achvList"></div>
+    </div>
+
+    <!-- ============ 设置 ============ -->
+    <div class="page" id="page-settings">
+      <div class="top-bar">
+        <div class="top-bar__inner">
+          <div class="top-bar__btn" onclick="back()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          </div>
+          <div class="top-bar__title">设置</div>
+          <div class="top-bar__placeholder"></div>
+        </div>
+      </div>
+      <div class="settings-body">
+        <div class="group-card">
+          <div class="group-row" onclick="showToast('编辑资料')">
+            <div class="group-row__label">头像</div>
+            <div class="group-row__right">
+              <div class="avatar-wrap"><div class="avatar-inner"><span class="avatar-text">🦊</span></div></div>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C0C4CC" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+          </div>
+          <div class="group-divider"></div>
+          <div class="group-row" onclick="showToast('编辑昵称')">
+            <div class="group-row__label">昵称</div>
+            <div class="group-row__right">
+              <div class="group-row__value">词客阿措</div>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C0C4CC" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+          </div>
+          <div class="group-divider"></div>
+          <div class="group-row" onclick="navigate('achievements')">
+            <div class="group-row__label">我的成就</div>
+            <div class="group-row__right">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C0C4CC" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+          </div>
+        </div>
+        <div class="group-title">偏好设置</div>
+        <div class="group-card">
+          <div class="group-row" onclick="showToast('选择默认模式')">
+            <div class="group-row__label">默认解析模式</div>
+            <div class="group-row__right">
+              <div class="group-row__value">快速解析</div>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C0C4CC" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+          </div>
+          <div class="group-divider"></div>
+          <div class="group-row" onclick="toggleSwitch(this)">
+            <div class="group-row__label">深色模式</div>
+            <div class="toggle-switch"><div class="toggle-knob"></div></div>
+          </div>
+          <div class="group-divider"></div>
+          <div class="group-row" onclick="toggleSwitch(this)">
+            <div class="group-row__label">推送通知</div>
+            <div class="toggle-switch toggle-switch--on"><div class="toggle-knob"></div></div>
+          </div>
+        </div>
+        <div class="group-title">关于</div>
+        <div class="group-card">
+          <div class="group-row">
+            <div class="group-row__label">版本</div>
+            <div class="group-row__value">v1.0.0</div>
+          </div>
+          <div class="group-divider"></div>
+          <div class="group-row">
+            <div class="group-row__label">AI 服务</div>
+            <div class="group-row__right">
+              <div class="ai-dot ai-dot--on"></div>
+              <div class="group-row__value">可用</div>
+            </div>
+          </div>
+          <div class="group-divider"></div>
+          <div class="group-row" onclick="showToast('隐私政策')">
+            <div class="group-row__label">隐私政策</div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C0C4CC" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+          <div class="group-divider"></div>
+          <div class="group-row" onclick="showToast('用户协议')">
+            <div class="group-row__label">用户协议</div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C0C4CC" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+          <div class="group-divider"></div>
+          <div class="group-row" onclick="showToast('已清除缓存')">
+            <div class="group-row__label group-row__label--danger">清除缓存</div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C0C4CC" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+        </div>
+        <div class="logout-btn" onclick="showToast('已退出登录')">退出登录</div>
+      </div>
+    </div>
+
+    <!-- ============ 词条详情 ============ -->
+    <div class="page" id="page-detail">
+      <div class="top-bar">
+        <div class="top-bar__inner">
+          <div class="top-bar__btn" onclick="back()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          </div>
+          <div class="top-bar__title">词条详情</div>
+          <div class="top-bar__placeholder"></div>
+        </div>
+      </div>
+      <div id="detailContent"></div>
+    </div>
+
+    <!-- ============ 登录页 ============ -->
+    <div class="page" id="page-login">
+      <div class="auth-page">
+        <div class="auth-logo">
+          <div class="auth-logo__title">中译中</div>
+          <div class="auth-logo__sub">看不懂的中文，翻成人话</div>
+        </div>
+        <div class="auth-form">
+          <div class="auth-field">
+            <label class="auth-field__label">账号</label>
+            <input class="auth-field__input" value="achu" placeholder="请输入用户名" />
+          </div>
+          <div class="auth-field">
+            <label class="auth-field__label">密码</label>
+            <input class="auth-field__input" type="password" value="123456" placeholder="至少 6 位" />
+          </div>
+          <button class="auth-btn" onclick="backToTranslate()">登 录</button>
+          <div class="auth-switch">还没有账号？<b onclick="showToast('注册功能演示版暂未开放')">立即注册</b></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 抽屉 -->
+  <div class="drawer-mask" id="drawerMask" onclick="closeDrawer()"></div>
+  <div class="drawer" id="drawer">
+    <div class="drawer__header">
+      <div>
+        <div class="drawer__brand-name">中译中</div>
+        <div class="drawer__brand-sub">中文语境理解 Skill</div>
+      </div>
+      <div class="drawer__close" onclick="closeDrawer()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </div>
+    </div>
+    <div class="drawer__search">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input class="drawer__search-input" placeholder="搜索对话内容" />
+    </div>
+    <div class="drawer__new-chat" onclick="handleNewChat()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <span class="drawer__new-chat-text">新对话</span>
+    </div>
+    <div class="drawer__quick-links">
+      <div class="drawer__quick-link" onclick="closeDrawer();navigate('history')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>
+        翻译历史
+      </div>
+    </div>
+    <div class="drawer__content">
+      <div class="drawer__group-title">最近对话</div>
+      <div class="drawer__menu" id="drawerSessions"></div>
+    </div>
+    <div class="drawer__footer">
+      <div class="drawer__user" onclick="closeDrawer();navigate('settings')">
+        <div class="drawer__avatar-wrap"><div class="drawer__avatar">🦊</div></div>
+        <div class="drawer__user-info">
+          <div class="drawer__user-name">词客阿措</div>
+          <div class="drawer__user-sub">已陪伴 28 天</div>
+        </div>
+        <div class="drawer__settings-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===================== 数据 ===================== */
+var CATS = [
+  {id:1,name:"职场黑话",description:"打工人必备的职场暗语词典"},
+  {id:2,name:"互联网梗",description:"互联网原住民们创造的网络流行梗"},
+  {id:3,name:"直播电商",description:"直播带货主播与观众的互动话术"},
+  {id:4,name:"游戏术语",description:"游戏玩家圈通用的硬核术语"},
+  {id:5,name:"饭圈用语",description:"追星族群体内的专属行话"},
+  {id:6,name:"学术黑话",description:"校园学术圈里那些晦涩的行话"},
+  {id:7,name:"金融投资",description:"投资理财领域的高频黑话"},
+  {id:8,name:"医疗健康",description:"医疗圈通用的专业俗语"},
+  {id:9,name:"法律术语",description:"法律相关常用术语科普"},
+  {id:10,name:"科技数码",description:"科技数码圈的黑话解析"},
+  {id:11,name:"生活方式",description:"新兴生活方式中的潮流用语"},
+  {id:12,name:"社交网络",description:"社交平台衍生的语境化用语"}
+];
+var WORDS = [
+  {id:1,word:"内卷",pinyin:"nèi juǎn",cat:1,risk:"high",meaning:"指非理性的内部竞争，同侪为争夺有限资源不断加码投入，导致整体收益不变甚至下降。",example:"现在这行业太卷了，大家都主动加班，纯粹是内卷。",advice:"使用时注意语境，避免渲染消极竞争情绪。",types:["舆情","价值观"],hot:1280},
+  {id:2,word:"躺平",pinyin:"tǎng píng",cat:1,risk:"medium",meaning:"指不再渴求世俗成功、主动降低欲望与付出，以最低消耗维持生活。",example:"拼不动了，我选择躺平，做条咸鱼也挺好。",advice:"易引发消极解读，官方场合慎用。",types:["舆情","价值观"],hot:980},
+  {id:3,word:"996",pinyin:"jiǔ jiǔ liù",cat:1,risk:"high",meaning:"指早 9 点上班、晚 9 点下班、每周工作 6 天的高强度加班制度。",example:"公司实行 996，身体真的吃不消。",advice:"涉及违法用工风险，引用时须结合法律语境说明。",types:["法律","舆情"],hot:2102},
+  {id:4,word:"打工人",pinyin:"dǎ gōng rén",cat:1,risk:"low",meaning:"上班族对自身身份的自嘲式称呼，带有幽默与辛酸并存的情绪色彩。",example:"打工人，打工魂，打工都是人上人。",advice:"中性偏幽默，通用场景可用。",types:[],hot:670},
+  {id:5,word:"YYDS",pinyin:"yóng yǒng dì shén",cat:2,risk:"low",meaning:"“永远的神”拼音首字母缩写，用于表达对某人或某物的极高赞美。",example:"这家店的奶茶 YYDS！",advice:"通用赞美用语，无特殊风险。",types:[],hot:1540},
+  {id:6,word:"绝绝子",pinyin:"jué jué zǐ",cat:2,risk:"low",meaning:"表示极好或极差的程度副词性短语，多用于夸张赞叹。",example:"这个妆容绝绝子，太好看了吧！",advice:"网络流行语，注意场合。",types:[],hot:820},
+  {id:7,word:"破防",pinyin:"pò fáng",cat:2,risk:"low",meaning:"原指游戏防御被击破，现指心理防线被击溃、情绪被触动。",example:"看到那段视频我直接破防了，眼泪止不住。",advice:"情感表达用语，无特殊风险。",types:[],hot:1100},
+  {id:8,word:"宝子们",pinyin:"bǎo zǐ men",cat:3,risk:"low",meaning:"直播带货主播对观众的亲昵称呼，源于“宝贝”的变体。",example:"宝子们，今天给大家带来一波福利！",advice:"亲昵称呼，营造氛围用，无特殊风险。",types:[],hot:760},
+  {id:9,word:"321上链接",pinyin:"sān èr yī shàng liàn jiē",cat:3,risk:"medium",meaning:"直播带货倒计时后上架商品链接的话术，营造紧迫感促成下单。",example:"准备好了吗？321 上链接！",advice:"涉嫌制造冲动消费，引用时需提示理性消费。",types:["消费诱导"],hot:1341},
+  {id:10,word:"AFK",pinyin:"ā yōu ef kèi",cat:4,risk:"low",meaning:"“Away From Keyboard”缩写，指玩家暂时离开键盘、挂机不在状态。",example:"我去倒杯水，AFK 一下。",advice:"通用游戏术语，无特殊风险。",types:[],hot:540},
+  {id:11,word:"躺赢",pinyin:"tǎng yíng",cat:4,risk:"low",meaning:"指不费力就能获胜，多用于游戏或团队场景中被队友带飞。",example:"这局遇到大神带飞，直接躺赢。",advice:"中性游戏用语，无特殊风险。",types:[],hot:480},
+  {id:12,word:"塌房",pinyin:"tā fáng",cat:5,risk:"medium",meaning:"指偶像因负面事件导致形象崩塌、粉丝脱粉的现象。",example:"他家偶像又塌房了，热搜第一。",advice:"涉及个人名誉，引用真实人物时需谨慎。",types:["舆情","名誉"],hot:1624},
+  {id:13,word:"打call",pinyin:"dǎ call",cat:5,risk:"low",meaning:"原指演唱会粉丝应援打call动作，现泛指公开表达支持与喜爱。",example:"为这部新剧打call，强烈推荐！",advice:"中性支持用语，无特殊风险。",types:[],hot:890},
+  {id:14,word:"卷王",pinyin:"juǎn wáng",cat:6,risk:"low",meaning:"指在竞争中最拼命、卷得最厉害的人，带调侃意味。",example:"室友天天图书馆到半夜，真是卷王本王。",advice:"校园调侃用语，注意分寸。",types:[],hot:410},
+  {id:15,word:"割韭菜",pinyin:"gē jiǔ cài",cat:7,risk:"high",meaning:"比喻利用信息差反复收割缺乏经验的投资者或消费者。",example:"这币圈项目就是割韭菜，别上当。",advice:"涉及金融风险，引用须提示投资有风险。",types:["金融","舆情"],hot:1881},
+  {id:16,word:"三甲",pinyin:"sān jiǎ",cat:8,risk:"low",meaning:"指三甲医院，即我国最高等级的医院，借指顶级医疗资源。",example:"这病得去三甲看看，小医院查不出来。",advice:"医学术语，无特殊风险。",types:[],hot:360},
+  {id:17,word:"知情权",pinyin:"zhī qíng quán",cat:9,risk:"low",meaning:"消费者或当事人有权知晓与其利益相关真实信息的权利。",example:"商家未标明成分，侵犯了消费者的知情权。",advice:"规范法律术语，通用场景可用。",types:[],hot:290},
+  {id:18,word:"大模型",pinyin:"dà mó xíng",cat:10,risk:"low",meaning:"指参数规模巨大、具备强大通用能力的人工智能模型，如大语言模型。",example:"现在各家都在卷大模型，应用场景越来越多。",advice:"中性科技术语，无特殊风险。",types:[],hot:1050},
+  {id:19,word:"拼搭",pinyin:"pīn dā",cat:11,risk:"low",meaning:"指把不同元素组合搭配的生活方式或玩法，如拼搭玩具、拼搭穿搭。",example:"周末和孩子一起拼搭积木，很有成就感。",advice:"中性生活用语，无特殊风险。",types:[],hot:220},
+  {id:20,word:"拼图式社交",pinyin:"pīn tú shì shè jiāo",cat:12,risk:"medium",meaning:"指通过碎片化内容拼凑出自我形象、在社交平台展示人设的社交方式。",example:"她的朋友圈就是典型的拼图式社交，每条都在立人设。",advice:"涉及社交心理，引用避免标签化评判他人。",types:["舆情"],hot:330}
+];
+var FAVS = [3,5,15,1,7,12];
+var SESSIONS = [
+  {id:1,title:"内卷是什么意思",time:"刚刚"},
+  {id:2,title:"YYDS 和绝绝子区别",time:"2 小时前"},
+  {id:3,title:"割韭菜的由来",time:"昨天"},
+  {id:4,title:"宝子们怎么用",time:"3 天前"}
+];
+var SUBMISSIONS = [
+  {word:"元宇宙",cat:"科技数码",status:"approved",meaning:"指基于互联网的虚拟世界集合，融合增强现实与数字孪生。",date:"2026-06-28"},
+  {word:"社死",cat:"社交网络",status:"pending",meaning:"社交性死亡的简称，指在公众面前极度尴尬、形象崩塌。",date:"2026-06-30"},
+  {word:"情绪价值",cat:"生活方式",status:"rejected",reason:"释义过于主观，缺少权威来源，建议补充使用语境与例句。",meaning:"一个人影响他人情绪的能力，多用于亲密关系评价。",date:"2026-06-25"},
+  {word:"早C晚A",cat:"生活方式",status:"approved",meaning:"早上用VC、晚上用A醇的护肤搭配方案。",date:"2026-06-20"},
+  {word:"数字游民",cat:"职场黑话",status:"pending",meaning:"指依靠互联网远程工作、不受固定办公地点束缚的人群。",date:"2026-07-01"}
+];
+var ACHV = [
+  {icon:"🌱",name:"初出茅庐",desc:"完成首次翻译",status:"unlocked",exp:20},
+  {icon:"🔥",name:"热词猎手",desc:"浏览 10 个热词",status:"unlocked",exp:40},
+  {icon:"❤️",name:"收藏达人",desc:"收藏 30 个词条",status:"unlocked",exp:60},
+  {icon:"📝",name:"投稿先锋",desc:"成功提交 5 个词条",status:"unlocked",exp:80},
+  {icon:"🎯",name:"精准反馈",desc:"提交 3 次翻译反馈",status:"unlocked",exp:50},
+  {icon:"📚",name:"博闻强识",desc:"浏览全部 12 个分类",status:"unlocked",exp:100},
+  {icon:"🏆",name:"满分卷王",desc:"单日翻译超过 20 次",status:"unlocked",exp:120},
+  {icon:"⭐",name:"词条贡献者",desc:"有 1 个词条通过审核",status:"in_progress",current:0,target:1,exp:80},
+  {icon:"💎",name:"深度玩家",desc:"累计使用深译模式 50 次",status:"in_progress",current:18,target:50,exp:150},
+  {icon:"👑",name:"意见领袖",desc:"提交词条被收藏 100 次",status:"locked",exp:200},
+  {icon:"🚀",name:"探索先锋",desc:"体验全部 3 种翻译模式",status:"in_progress",current:2,target:3,exp:60},
+  {icon:"🎖️",name:"中译中布道师",desc:"连续登录 30 天",status:"locked",exp:300}
+];
+var ACHV_LEADERBOARD = [
+  {rank:1,name:"卷王本王",exp:2840,avatar:"🐯",isMe:false},
+  {rank:2,name:"黑话翻车现场",exp:2510,avatar:"🦊",isMe:false},
+  {rank:3,name:"宝子别卷了",exp:2200,avatar:"🐰",isMe:false},
+  {rank:4,name:"词客阿措",exp:1840,avatar:"🦊",isMe:true},
+  {rank:5,name:"躺平大队长",exp:1690,avatar:"🐼",isMe:false}
+];
+var RISK_LABEL = {low:"低风险",medium:"中风险",high:"高风险"};
+var MODE_LABEL = {quick:"快速解析",deep:"深度解析",dict:"词典模式"};
+var SUB_STATUS_LABEL = {approved:"已通过",pending:"审核中",rejected:"已拒绝"};
+var currentMode = "quick";
+var pageStack = ["page-translate"];
+var activeCat = 0;
+var isLoggedIn = true;             // 模拟登录态
+var searchHistory = ["内卷","YYDS","割韭菜"];   // 搜索历史
+var votedIds = new Set();           // 热词页已投票集合
+var favSet = new Set(FAVS);         // 收藏集合，方便增删
+var favTransSet = new Set([1,3,4]); // 收藏的翻译结果（用 SESSIONS id 模拟）
+var translateIsLoading = false;     // 翻译页 loading 守卫
+var userProfile = { avatar:"🦊", nickname:"词客阿措" };  // 当前用户资料
+var currentDetailId = 1;            // 当前查看的词条 id
+var currentCatId = 0;               // 分类详情页当前分类
+var dictSort = "hot";               // 词库页排序：hot/new/name
+var achvTab = "unlocked";           // 成就页 Tab
+var favTab = "words";               // 收藏页 Tab
+var favEditMode = false;            // 收藏页编辑模式
+var subTab = "all";                 // 提交页 Tab
+var loginTab = "login";             // 登录页 Tab
+var profileEditMode = false;        // 资料设置页模式
+var selectedAvatar = "🦊";          // 资料设置页选中的头像
+var profileNicknameInput = "词客阿措";
+var hotSortMode = "default";        // 热词排序模式：default/hot/vote
+var hotPeriod = "today";            // 热词时段
+var profileAvatars = ["🐱","🐶","🐼","🦊","🐻","🐰","🦁","🐸"];
+var profileAvatarBgs = [
+  "linear-gradient(135deg,#FFE4B5,#FFB347)",
+  "linear-gradient(135deg,#B5EAD7,#7BC47F)",
+  "linear-gradient(135deg,#D6E4FF,#7AA5FF)",
+  "linear-gradient(135deg,#FFE0E6,#FF8FA3)",
+  "linear-gradient(135deg,#E8D7FF,#B084EB)",
+  "linear-gradient(135deg,#FFF5BA,#FFD66B)",
+  "linear-gradient(135deg,#FFD9B5,#FF9F45)",
+  "linear-gradient(135deg,#C5F0E8,#25F4EE)"
+];
+var ERR_TYPES = ["释义错误","例句错误","拼音错误","分类错误","风险标注错误","已过时","其他"];
+var selectedErrType = -1;
+
+/* 为每个词条补充 favCount（伪随机，避免硬编码） */
+WORDS.forEach(function(w){ w.favCount = 28 + (w.id * 47) % 320; });
+
+/* ===================== 工具 ===================== */
+function $(id){return document.getElementById(id);}
+function catName(id){var c=CATS.find(function(x){return x.id===id});return c?c.name:"";}
+function catById(id){return CATS.find(function(x){return x.id===id});}
+function showToast(msg){
+  var t=$("toast");t.textContent=msg;t.style.display="block";
+  clearTimeout(t._t);t._t=setTimeout(function(){t.style.display="none";},1600);
+}
+function fmtHot(n){return n>=10000?(n/10000).toFixed(1)+"w":String(n);}
+function escapeHtml(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+
+/* ===================== 导航 ===================== */
+function showPage(id){
+  document.querySelectorAll(".page").forEach(function(p){p.classList.remove("active");});
+  $(id).classList.add("active");
+  $("screen").scrollTop=0;
+}
+function navigate(name, params){
+  params = params || {};
+  pageStack.push("page-"+currentTab());
+  showPage("page-"+name);
+  if(name==="dict")renderDict();
+  if(name==="search")renderSearchInit();
+  if(name==="hot")renderHot();
+  if(name==="history")renderHistory();
+  if(name==="favorites")renderFav();
+  if(name==="submissions")renderSub();
+  if(name==="achievements")renderAchv();
+  if(name==="detail"){currentDetailId = params.id||currentDetailId; renderDetail(currentDetailId);}
+  if(name==="category"){currentCatId = params.catId||0; renderCategory();}
+  if(name==="profile-setup"){profileEditMode = (params.mode==="edit"); renderProfileSetup();}
+  if(name==="agreement")renderAgreement(params.type||"privacy");
+  if(name==="login")renderLogin();
+}
+function currentTab(){
+  var active=document.querySelector(".page.active");
+  return active?active.id.replace("page-",""):"translate";
+}
+function back(){
+  if(pageStack.length){
+    var prev=pageStack.pop();
+    showPage(prev);
+  }else{
+    showPage("page-translate");
+  }
+}
+function backToTranslate(){
+  pageStack=[];showPage("page-translate");
+}
+
+/* ===================== 抽屉 ===================== */
+function openDrawer(){
+  $("drawer").classList.add("drawer--open");
+  $("drawerMask").classList.add("drawer-mask--open");
+  renderSessions();
+}
+function closeDrawer(){
+  $("drawer").classList.remove("drawer--open");
+  $("drawerMask").classList.remove("drawer-mask--open");
+}
+function renderSessions(){
+  $("drawerSessions").innerHTML=SESSIONS.map(function(s){
+    return '<div class="drawer__menu-item" onclick="closeDrawer();showToast(\'恢复会话：'+s.title+'\')">'+
+      '<span class="drawer__menu-text">'+s.title+'</span>'+
+      '<div class="drawer__menu-right"><span class="drawer__menu-time">'+s.time+'</span></div></div>';
+  }).join("");
+}
+function handleNewChat(){
+  closeDrawer();
+  $("chatInput").value="";
+  $("sendBtn").classList.add("chat-input__send--disabled");
+  resetEmpty();
+  showToast("已创建新对话");
+}
+
+/* ===================== +号浮窗 ===================== */
+function togglePlusMenu(){
+  var p=$("popover"),m=$("popoverMask"),b=$("plusBtn");
+  var open=p.classList.contains("chat-popover--open");
+  if(open){closePlusMenu();}else{
+    p.classList.add("chat-popover--open");
+    m.classList.add("chat-popover-mask--open");
+    b.classList.add("chat-input__plus--active");
+  }
+}
+function closePlusMenu(){
+  $("popover").classList.remove("chat-popover--open");
+  $("popoverMask").classList.remove("chat-popover-mask--open");
+  $("plusBtn").classList.remove("chat-input__plus--active");
+}
+
+/* ===================== 翻译页 ===================== */
+function renderHotChips(){
+  var top=WORDS.slice().sort(function(a,b){return b.hot-a.hot;}).slice(0,8);
+  $("hotChips").innerHTML=top.map(function(w){
+    return '<div class="hot-chip" onclick="quickTranslate(\''+w.word+'\')">'+w.word+'</div>';
+  }).join("");
+}
+function switchMode(el){
+  el.parentNode.querySelectorAll(".chat-empty__mode").forEach(function(t){t.classList.remove("chat-empty__mode--active");});
+  el.classList.add("chat-empty__mode--active");
+  currentMode=el.dataset.mode;
+}
+function handleHeaderNewChat(){
+  var empty=$("chatEmpty");
+  if(empty){showToast("已在新对话中");return;}
+  resetEmpty();
+  showToast("已创建新对话");
+}
+function resetEmpty(){
+  $("chatBody").innerHTML='<div class="chat-empty" id="chatEmpty">'+
+    '<div class="chat-empty__center">'+
+    '<div class="chat-empty__title">中译中</div>'+
+    '<div class="chat-empty__subtitle">看不懂的中文，翻成人话</div>'+
+    '<div class="chat-empty__modes">'+
+    '<div class="chat-empty__mode '+(currentMode==="quick"?"chat-empty__mode--active":"")+'" data-mode="quick" onclick="switchMode(this)">快速解析</div>'+
+    '<div class="chat-empty__mode '+(currentMode==="deep"?"chat-empty__mode--active":"")+'" data-mode="deep" onclick="switchMode(this)">深度解析</div>'+
+    '<div class="chat-empty__mode '+(currentMode==="dict"?"chat-empty__mode--active":"")+'" data-mode="dict" onclick="switchMode(this)">词典模式</div></div>'+
+    '<div class="chat-empty__hot"><div class="chat-empty__hot-title">试试这些</div>'+
+    '<div class="chat-empty__hot-chips">'+$("hotChips").innerHTML+'</div></div></div></div>';
+}
+function onInputChange(){
+  var v=$("chatInput").value.trim();
+  $("sendBtn").classList.toggle("chat-input__send--disabled",!v);
+}
+function quickTranslate(word){
+  $("chatInput").value=word;
+  onInputChange();
+  handleTranslate();
+}
+function handleTranslate(){
+  var text=$("chatInput").value.trim();
+  if(!text){showToast("请输入要翻译的文本");return;}
+  var empty=$("chatEmpty");
+  if(empty){empty.parentNode.removeChild(empty);}
+  var body=$("chatBody");
+  // 用户消息
+  var um=document.createElement("div");
+  um.className="chat-user-msg";
+  um.innerHTML='<div class="chat-user-msg__bubble">'+text+'</div>';
+  body.appendChild(um);
+  // loading
+  var ld=document.createElement("div");
+  ld.className="chat-loading";ld.id="loading";
+  ld.innerHTML='<div class="chat-loading__spinner"></div><div class="chat-loading__text">正在把黑话翻译成人话...</div>';
+  body.appendChild(ld);
+  body.scrollTop=body.scrollHeight;
+  $("chatInput").value="";
+  $("sendBtn").classList.add("chat-input__send--disabled");
+  setTimeout(function(){
+    var l=$("loading");if(l)l.parentNode.removeChild(l);
+    var wrap=document.createElement("div");
+    wrap.innerHTML=buildResult(text);
+    while(wrap.firstChild){body.appendChild(wrap.firstChild);}
+    body.scrollTop=body.scrollHeight;
+  },900);
+}
+function buildResult(text){
+  var hits=WORDS.filter(function(w){return text.indexOf(w.word)>=0||w.word.indexOf(text)>=0;});
+  var primary=hits[0]||WORDS[0];
+  var translation=humanize(text,primary);
+  var html='<div class="chat-result__header">'+MODE_LABEL[currentMode]+' · 刚刚</div>';
+  html+='<div class="hero-card"><div class="hero-card__header">'+
+    '<div class="hero-card__title-wrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FE2C55" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8l6 6"/><path d="M4 14l6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="M22 22l-5-10-5 10"/><path d="M14 18h6"/></svg><span class="hero-card__title">人话翻译</span></div>'+
+    '<span class="hero-card__tag">'+MODE_LABEL[currentMode]+'</span></div>';
+  html+='<div class="hero-card__body">'+translation+'</div>';
+  html+='<div class="hero-card__actions">'+
+    '<div class="hero-card__action" onclick="showToast(\'已复制\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span class="hero-card__action-text">复制</span></div>'+
+    '<div class="hero-card__action" onclick="showToast(\'已收藏\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg><span class="hero-card__action-text">收藏</span></div>'+
+    '<div class="hero-card__action" onclick="showToast(\'已填入追问\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span class="hero-card__action-text">追问</span></div></div></div>';
+  // 命中词条
+  if(hits.length){
+    html+='<div class="keyword-list"><div class="keyword-list__header"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg><span class="keyword-list__title">命中词条</span></div>';
+    hits.slice(0,3).forEach(function(w,i){
+      var last=i===Math.min(hits.length,3)-1?"keyword-list__item--last":"";
+      html+='<div class="keyword-list__item '+last+'"><span class="keyword-list__word" onclick="openDetail('+w.id+')">'+w.word+'</span><span class="keyword-list__meaning">'+w.meaning+'</span></div>';
+    });
+    html+='</div>';
+  }
+  // Tier3
+  html+='<div class="tier3-cards">';
+  if(currentMode!=="quick"){
+    html+='<div class="tier3-card"><div class="tier3-card__header"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5.76.76 1.23 1.52 1.41 2.5"/></svg><span class="tier3-card__title">潜台词</span></div><div class="tier3-card__body">'+subtextFor(primary)+'</div></div>';
+  }
+  html+='<div class="tier3-card"><div class="tier3-card__header"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span class="tier3-card__title">建议回复</span></div><div class="tier3-card__quote"><div class="tier3-card__quote-text">“'+replyFor(primary)+'”</div></div></div>';
+  if(primary.risk!=="low"){
+    html+='<div class="tier3-card tier3-card--risk"><div class="tier3-card__header"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="tier3-card__title">风险提示</span></div><div class="tier3-card__body">'+primary.advice+'</div></div>';
+  }
+  html+='</div>';
+  // 标签行
+  html+='<div class="tag-rows">';
+  if(primary.types.length){
+    html+='<div class="tag-row"><div class="tag-row__header"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg><span class="tag-row__title">语境判断</span></div><div class="tag-row__tags">';
+    primary.types.forEach(function(t){html+='<span class="tag-row__tag">'+t+'</span>';});
+    html+='</div></div>';
+  }
+  var related=WORDS.filter(function(w){return w.cat===primary.cat&&w.id!==primary.id;}).slice(0,3);
+  if(related.length){
+    html+='<div class="tag-row"><div class="tag-row__header"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round"><line x1="10" y1="6" x2="20" y2="6"/><line x1="4" y1="6" x2="4.01" y2="6"/><line x1="10" y1="12" x2="20" y2="12"/><line x1="4" y1="12" x2="4.01" y2="12"/><line x1="10" y1="18" x2="20" y2="18"/><line x1="4" y1="18" x2="4.01" y2="18"/></svg><span class="tag-row__title">相关词条</span></div><div class="tag-row__tags">';
+    related.forEach(function(w){html+='<span class="tag-row__tag tag-row__tag--link" onclick="openDetail('+w.id+')">'+w.word+'</span>';});
+    html+='</div></div>';
+  }
+  html+='</div>';
+  // 反馈
+  html+='<div class="feedback-row"><div class="feedback-row__btn" onclick="showToast(\'感谢反馈：准确\')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg></div><div class="feedback-row__btn" onclick="showToast(\'感谢反馈：不准确\')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg></div></div>';
+  return html;
+}
+function humanize(text,primary){
+  var map={
+    "内卷":"就是大家瞎折腾互相消耗，谁也没捞着好，反而越来越累。",
+    "躺平":"就是不跟你卷了，维持最低生活成本，爱咋咋地。",
+    "996":"就是早上9点干到晚上9点，一周6天，纯纯把人当机器使。",
+    "YYDS":"就是“永远的神”，夸一个东西牛逼到不行。",
+    "割韭菜":"就是利用信息差一茬一茬地骗新手小白的钱。",
+    "塌房":"就是偶像人设崩了、翻车了，粉丝全跑了。",
+    "破防":"就是心理防线被击穿，情绪一下子绷不住了。",
+    "宝子们":"就是主播喊观众“宝贝们”，套近乎让你买买买。",
+    "321上链接":"就是直播倒计时催你赶紧下单，制造紧迫感。",
+    "打工人":"就是上班族自嘲，又苦又累还得笑脸迎人。",
+    "卷王":"就是卷到变态的那个狠人，谁也比不过他。"
+  };
+  return map[primary.word]||("简单说就是："+primary.meaning.replace(/指|比喻/g,""));
+}
+function subtextFor(w){
+  var m={"内卷":"表面说竞争激烈，实则表达对无效内耗的疲惫与无奈。","996":"表面是工时描述，实则是对违法加班的控诉。","割韭菜":"表面说投资失败，实则警示信息不对称下的被收割。","塌房":"表面说偶像翻车，实则折射粉丝情感投入的崩塌。"};
+  return m[w.word]||("言下之意："+w.advice);
+}
+function replyFor(w){
+  var m={"内卷":"是啊，卷来卷去大家都没好处，不如活自己。","996":"身体要紧，违法加班可以投诉维权。","割韭菜":"投资有风险，捂紧钱包别跟风。","塌房":"追星图个开心，不行就换一个。","宝子们":"理性消费，按需下单。"};
+  return m[w.word]||("懂了，"+w.word+"原来是这个意思。");
+}
+function openDetail(id){
+  pageStack.push("page-"+currentTab());
+  showPage("page-detail");
+  renderDetail(id);
+}
+
+/* ===================== 词库页 ===================== */
+function renderDict(){
+  if(!$("catPills").innerHTML){
+    var html='<div class="category-pill category-pill--active" onclick="switchCat(0,this)">全部</div>';
+    CATS.forEach(function(c){
+      html+='<div class="category-pill" onclick="switchCat('+c.id+',this)">'+c.name+'</div>';
+    });
+    $("catPills").innerHTML=html;
+  }
+  var list=activeCat===0?WORDS:WORDS.filter(function(w){return w.cat===activeCat;});
+  list=list.slice().sort(function(a,b){return b.hot-a.hot;});
+  $("dictList").innerHTML=list.map(function(w,i){
+    return renderWordCard(w,i<3);
+  }).join("");
+}
+function switchCat(id,el){
+  activeCat=id;
+  el.parentNode.querySelectorAll(".category-pill").forEach(function(p){p.classList.remove("category-pill--active");});
+  el.classList.add("category-pill--active");
+  renderDict();
+}
+function renderWordCard(w,featured){
+  var cls=featured?"word-card--featured":"word-card--default";
+  var bar=featured?'<div class="word-card__bar"></div>':'';
+  var heat=featured?'<div class="word-card__heat"><svg width="11" height="11" viewBox="0 0 24 24" fill="#F59E0B" stroke="none"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg><span class="word-card__heat-text">'+fmtHot(w.hot)+'</span></div>':'';
+  return '<div class="word-card '+cls+'" onclick="openDetail('+w.id+')">'+bar+
+    '<div class="word-card__body"><div class="word-card__main">'+
+    '<div class="word-card__header"><span class="word-card__word">'+w.word+'</span><div class="word-card__tags">'+
+    '<span class="word-tag">'+catName(w.cat)+'</span>'+
+    '<span class="risk-badge risk-badge--'+w.risk+'">'+RISK_LABEL[w.risk]+'</span>'+heat+'</div></div>'+
+    '<div class="word-card__meaning">'+w.meaning+'</div></div>'+
+    '<div class="word-card__fav" onclick="event.stopPropagation();showToast(\'已收藏\')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></div></div></div>';
+}
+
+/* ===================== 搜索页 ===================== */
+function renderSearchInit(){
+  $("searchInput").value="";
+  $("searchContent").innerHTML=
+    '<div class="search-section"><div class="search-section__title">最近搜索</div><div class="search-chips">'+
+    ['内卷','YYDS','割韭菜','塌房','996'].map(function(w){return '<span class="search-chip" onclick="$(\'searchInput\').value=\''+w+'\';onSearch(\''+w+'\')">'+w+'</span>';}).join("")+
+    '</div></div>'+
+    '<div class="search-section"><div class="search-section__title">热门搜索</div><div class="search-chips">'+
+    WORDS.slice(0,6).map(function(w){return '<span class="search-chip" onclick="$(\'searchInput\').value=\''+w.word+'\';onSearch(\''+w.word+'\')">'+w.word+'</span>';}).join("")+
+    '</div></div>';
+}
+function onSearch(val){
+  var box=$("searchContent");
+  if(!val.trim()){renderSearchInit();return;}
+  var hits=WORDS.filter(function(w){return w.word.indexOf(val)>=0||w.meaning.indexOf(val)>=0||catName(w.cat).indexOf(val)>=0;});
+  if(hits.length){
+    box.innerHTML='<div class="word-list">'+hits.map(function(w){return renderWordCard(w,false);}).join("")+'</div>';
+  }else{
+    box.innerHTML='<div class="search-section"><div class="card" style="background:#fff;border-radius:12px;padding:16px;border:1px dashed #ffc4cf">'+
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><div class="chat-loading__spinner" style="width:16px;height:16px;border-width:2px;margin:0"></div><span style="color:var(--text-secondary);font-size:13px">AI 正在实时翻译“'+val+'”...</span></div>'+
+      '<div style="font-size:12px;color:var(--text-tertiary)">词库暂未收录，已调用 AI 大模型翻译，结果将自动加入数据库待审核。</div></div></div>';
+    setTimeout(function(){
+      if($("searchInput").value!==val)return;
+      box.innerHTML='<div class="search-section"><div style="background:#fff;border-radius:12px;padding:16px;box-shadow:var(--shadow-xs)">'+
+        '<div class="word-card__header" style="margin-bottom:8px"><span class="word-card__word">'+val+'</span><span class="risk-badge risk-badge--medium">待审核</span></div>'+
+        '<div style="font-size:14px;color:var(--text-primary);line-height:1.6;margin:8px 0">'+aiTranslate(val)+'</div>'+
+        '<div style="font-size:12px;color:var(--text-tertiary);border-top:1px solid var(--border-light);padding-top:8px;margin-top:8px">该词条由 AI 实时翻译生成，已进入审核队列，审核通过后将正式收录。</div></div></div>';
+    },1200);
+  }
+}
+function aiTranslate(val){
+  return "“"+val+"”是一个网络流行表达，通常用于特定圈层语境中。AI 根据上下文推测其含义为：指代某种特定的网络文化现象或情绪表达，使用时需结合具体场景理解。建议关注该词的传播语境，避免在不熟悉的场合误用。";
+}
+
+/* ===================== 热词页 ===================== */
+function renderHot(){
+  var sorted=WORDS.slice().sort(function(a,b){return b.hot-a.hot;});
+  var top3=sorted.slice(0,3);
+  var order=[1,0,2];
+  var cls=["second","first","third"];
+  var medals=["🥈","🥇","🥉"];
+  $("podium").innerHTML=order.map(function(o,i){
+    var w=top3[o];
+    return '<div class="podium-item '+cls[i]+'" onclick="openDetail('+w.id+')">'+
+      '<div class="pd-rank">'+medals[i]+'</div>'+
+      '<div class="pd-bar">'+(i===1?'1':'')+'</div>'+
+      '<div class="pd-word">'+w.word+'</div>'+
+      '<div class="pd-hot">🔥 '+fmtHot(w.hot)+'</div></div>';
+  }).join("");
+  var trends=["up","up","flat","down","up","up","flat","down"];
+  var trendArrows={up:"↑",down:"↓",flat:"–"};
+  $("rankList").innerHTML=sorted.map(function(w,i){
+    var t=trends[i%trends.length];
+    return '<div class="rank-item" onclick="openDetail('+w.id+')">'+
+      '<div class="ri-num '+(i<3?"top":"")+'">'+(i+1)+'</div>'+
+      '<div class="ri-info"><div class="ri-word">'+w.word+'</div><div class="ri-meaning">'+w.meaning+'</div></div>'+
+      '<div class="ri-trend '+t+'">'+trendArrows[t]+'</div></div>';
+  }).join("");
+}
+
+/* ===================== 翻译历史 ===================== */
+function renderHistory(){
+  $("historyContent").innerHTML='<div class="word-list">'+
+    SESSIONS.map(function(s){
+      return '<div class="word-card word-card--default" onclick="showToast(\'恢复会话\')"><div class="word-card__body"><div class="word-card__main"><div class="word-card__header"><span class="word-card__word">'+s.title+'</span></div><div class="word-card__meaning">'+s.time+'</div></div></div></div>';
+    }).join("")+'</div>';
+}
+
+/* ===================== 收藏 ===================== */
+function renderFav(){
+  var items=WORDS.filter(function(w){return FAVS.indexOf(w.id)>=0;});
+  if(!items.length){
+    $("favList").innerHTML='<div class="empty-state"><div class="empty-state__icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></div><div class="empty-state__text">还没有收藏</div><div class="empty-state__sub">翻译结果中点击收藏即可保存</div></div>';return;
+  }
+  $("favList").innerHTML=items.map(function(w){return renderWordCard(w,false);}).join("");
+}
+
+/* ===================== 我的提交 ===================== */
+function renderSub(){
+  $("subList").innerHTML=SUBMISSIONS.map(function(s){
+    return '<div class="sub-card"><div class="sub-card__head"><div><span class="sub-card__word">'+s.word+'</span><span class="sub-card__cat">'+s.cat+'</span></div><span class="status-badge status-badge--'+s.status+'">'+({approved:"已通过",pending:"审核中",rejected:"已驳回"}[s.status])+'</span></div>'+
+      '<div class="sub-card__meaning">'+s.meaning+'</div>'+
+      '<div class="sub-card__date">提交于 '+s.date+'</div>'+
+      (s.reason?'<div class="sub-card__reason">驳回原因：'+s.reason+'</div>':'')+'</div>';
+  }).join("");
+}
+
+/* ===================== 成就 ===================== */
+function renderAchv(){
+  var done=ACHV.filter(function(a){return a.done;});
+  var todo=ACHV.filter(function(a){return !a.done;});
+  $("achvList").innerHTML='<div class="section-title">已解锁 ('+done.length+'/'+ACHV.length+')</div>'+
+    done.map(function(a){
+      return '<div class="achv-card unlocked"><div class="achv-card__icon">'+a.icon+'</div><div class="achv-card__info"><div class="achv-card__name">'+a.name+'</div><div class="achv-card__desc">'+a.desc+'</div></div><div class="achv-card__status achv-card__status--done">已达成</div></div>';
+    }).join("")+
+    '<div class="section-title">未解锁</div>'+
+    todo.map(function(a){
+      return '<div class="achv-card locked"><div class="achv-card__icon">'+a.icon+'</div><div class="achv-card__info"><div class="achv-card__name">'+a.name+'</div><div class="achv-card__desc">'+a.desc+'</div></div><div class="achv-card__status achv-card__status--todo">未达成</div></div>';
+    }).join("");
+}
+
+/* ===================== 词条详情 ===================== */
+function renderDetail(id){
+  var w=WORDS.find(function(x){return x.id===id;});
+  if(!w)return;
+  $("detailContent").innerHTML=
+    '<div class="detail-hero"><div class="detail-hero__word">'+w.word+'</div><div class="detail-hero__pinyin">'+w.pinyin+'</div>'+
+    '<div class="detail-hero__tags"><span class="word-tag">'+catName(w.cat)+'</span><span class="risk-badge risk-badge--'+w.risk+'">'+RISK_LABEL[w.risk]+'</span></div></div>'+
+    '<div class="detail-section"><div class="detail-section__label">📖 释义</div><div class="detail-section__content">'+w.meaning+'</div></div>'+
+    '<div class="detail-section"><div class="detail-section__label">✏️ 例句</div><div class="detail-section__example">'+w.example+'</div></div>'+
+    (w.types.length?'<div class="detail-section"><div class="detail-section__label">🏷️ 风险类型</div><div class="detail-section__content">'+w.types.map(function(t){return '<span class="tag-row__tag" style="display:inline-block;margin:2px">'+t+'</span>';}).join("")+'</div></div>':'')+
+    '<div class="detail-section"><div class="detail-section__label">⚠️ 使用建议</div><div class="detail-section__content" style="color:var(--text-secondary)">'+w.advice+'</div></div>'+
+    '<div class="detail-section"><div class="detail-section__label">📊 热度</div><div class="detail-section__content"><b style="font-size:18px">'+fmtHot(w.hot)+'</b> 浏览</div></div>'+
+    '<div class="detail-actions"><button class="detail-actions__btn detail-actions__btn--ghost" onclick="showToast(\'已复制释义\')">复制</button><button class="detail-actions__btn detail-actions__btn--primary" onclick="showToast(\'已收藏\')">收藏</button></div>';
+}
+
+/* ===================== 设置 ===================== */
+function toggleSwitch(el){
+  var t=el.querySelector(".toggle-switch");
+  if(t)t.classList.toggle("toggle-switch--on");
+}
+
+/* ===================== 时钟 ===================== */
+function updateClock(){
+  var d=new Date();
+  $("clock").textContent=d.getHours()+":"+(d.getMinutes()<10?"0":"")+d.getMinutes();
+}
+
+/* ===================== 初始化 ===================== */
+renderHotChips();
+updateClock();
+setInterval(updateClock,30000);
+</script>
+</body>
+</html>

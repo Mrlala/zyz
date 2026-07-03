@@ -1,0 +1,122 @@
+[
+  {
+    "name": "职场黑话",
+    "parent_id": null,
+    "level": 1,
+    "sort_order": 10,
+    "icon": "workplace",
+    "id": 1,
+    "created_at": "2026-06-29 05:53:42",
+    "updated_at": "2026-06-29 05:53:42"
+  },
+  {
+    "name": "互联网梗",
+    "parent_id": null,
+    "level": 1,
+    "sort_order": 20,
+    "icon": "meme",
+    "id": 2,
+    "created_at": "2026-06-29 05:53:42",
+    "updated_at": "2026-06-29 05:53:42"
+  },
+  {
+    "name": "直播电商",
+    "parent_id": null,
+    "level": 1,
+    "sort_order": 30,
+    "icon": "live",
+    "id": 3,
+    "created_at": "2026-06-29 05:53:42",
+    "updated_at": "2026-06-29 05:53:42"
+  },
+  {
+    "name": "游戏术语",
+    "parent_id": null,
+    "level": 1,
+    "sort_order": 40,
+    "icon": "game",
+    "id": 4,
+    "created_at": "2026-06-29 05:53:42",
+    "updated_at": "2026-06-29 05:53:42"
+  },
+  {
+    "name": "饭圈用语",
+    "parent_id": null,
+    "level": 1,
+    "sort_order": 50,
+    "icon": "fan",
+    "id": 5,
+    "created_at": "2026-06-29 05:53:42",
+    "updated_at": "2026-06-29 05:53:42"
+  },
+  {
+    "name": "学术黑话",
+    "parent_id": null,
+    "level": 1,
+    "sort_order": 60,
+    "icon": "academic",
+    "id": 6,
+    "created_at": "2026-06-29 05:53:42",
+    "updated_at": "2026-06-29 05:53:42"
+  },
+  {
+    "name": "金融投资",
+    "parent_id": null,
+    "level": 1,
+    "sort_order": 70,
+    "icon": "finance",
+    "id": 7,
+    "created_at": "2026-06-29 05:53:42",
+    "updated_at": "2026-06-29 05:53:42"
+  },
+  {
+    "name": "医疗健康",
+    "parent_id": null,
+    "level": 1,
+    "sort_order": 80,
+    "icon": "medical",
+    "id": 8,
+    "created_at": "2026-06-29 05:53:42",
+    "updated_at": "2026-06-29 05:53:42"
+  },
+  {
+    "name": "法律术语",
+    "parent_id": null,
+    "level": 1,
+    "sort_order": 90,
+    "icon": "legal",
+    "id": 9,
+    "created_at": "2026-06-29 05:53:42",
+    "updated_at": "2026-06-29 05:53:42"
+  },
+  {
+    "name": "科技数码",
+    "parent_id": null,
+    "level": 1,
+    "sort_order": 100,
+    "icon": "tech",
+    "id": 10,
+    "created_at": "2026-06-29 05:53:42",
+    "updated_at": "2026-06-29 05:53:42"
+  },
+  {
+    "name": "生活方式",
+    "parent_id": null,
+    "level": 1,
+    "sort_order": 110,
+    "icon": "lifestyle",
+    "id": 11,
+    "created_at": "2026-06-29 05:53:42",
+    "updated_at": "2026-06-29 05:53:42"
+  },
+  {
+    "name": "社交网络",
+    "parent_id": null,
+    "level": 1,
+    "sort_order": 120,
+    "icon": "social",
+    "id": 12,
+    "created_at": "2026-06-29 05:53:42",
+    "updated_at": "2026-06-29 05:53:42"
+  }
+]

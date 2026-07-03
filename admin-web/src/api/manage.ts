@@ -74,6 +74,14 @@ export const wordApi = {
     request({ url: '/manage/words/batch-status', method: 'put', data: { ids, status } }),
   batchDelete: (ids: number[]) =>
     request({ url: '/manage/words/batch', method: 'delete', data: { ids } }),
+  batchCreate: (items: Array<{
+    word: string
+    meaning: string
+    category_name: string
+    pinyin?: string
+    risk_level?: string
+    example?: string
+  }>) => request({ url: '/manage/words/batch', method: 'post', data: { items } }),
 }
 
 // ===================== 分类管理 =====================
@@ -84,6 +92,19 @@ export const categoryApi = {
   update: (id: number, data: { name?: string; parent_id?: number; sort_order?: number; icon?: string }) =>
     request({ url: `/manage/categories/${id}`, method: 'put', data }),
   remove: (id: number) => request({ url: `/manage/categories/${id}`, method: 'delete' }),
+}
+
+// ===================== AI 候选词 =====================
+export const aiCandidateApi = {
+  list: (params: {
+    page: number
+    page_size: number
+    status?: string
+    min_count?: number
+    keyword?: string
+  }) => request({ url: '/manage/ai-candidates', method: 'get', params }),
+  promote: (id: number) => request({ url: `/manage/ai-candidates/${id}/promote`, method: 'post' }),
+  discard: (id: number) => request({ url: `/manage/ai-candidates/${id}`, method: 'delete' }),
 }
 
 // ===================== 内容审核 =====================
@@ -108,6 +129,7 @@ export const aiConfigApi = {
   getDeprecation: () => request({ url: '/manage/ai-config/deprecation', method: 'get' }),
   migrateModel: (target_model: string) =>
     request({ url: '/manage/ai-config/migrate-model', method: 'post', data: { target_model } }),
+  getPromptTemplate: () => request({ url: '/manage/ai-config/prompt-template', method: 'get' }),
 }
 
 // ===================== 监控 =====================

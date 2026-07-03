@@ -38,6 +38,8 @@ class User(BaseModel):
     title = Column(String(50), nullable=True, comment="称号")
     preferences = Column(JSON, nullable=True, comment="偏好设置，如主题、关注分类")
     last_login_at = Column(DateTime, nullable=True, comment="最后登录时间")
+    failed_login_count = Column(Integer, nullable=False, default=0, comment="连续登录失败次数")
+    locked_until = Column(DateTime, nullable=True, comment="锁定截止时间，NULL 表示未锁定")
 
     __table_args__ = (Index("idx_users_level", "level"),)
 

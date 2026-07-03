@@ -27,8 +27,14 @@ class UserService:
         :param password: 明文密码
         :param db: 数据库会话
         :return: 新建用户对象
-        :raises ValueError: 用户名已存在
+        :raises ValueError: 用户名已存在 / 密码强度不足
         """
+        # 密码强度校验（与后端 Schema 的 min_length=8 互补，额外校验数字+字母）
+        from core.security import validate_password_strength
+        ok, msg = validate_password_strength(password)
+        if not ok:
+            raise ValueError(msg)
+
         existing = db.execute(
             select(User).where(User.username == username)
         ).scalar_one_or_none()
@@ -51,16 +57,42 @@ class UserService:
         """账号密码登录，签发 JWT 令牌。
 
         :return: {token, user} 字典
-        :raises ValueError: 用户名或密码错误
+        :raises ValueError: 用户名或密码错误 / 账号已锁定
         """
+        from core.login_lock import (
+            compute_lock_until,
+            is_locked,
+            lock_message,
+            should_lock,
+            MAX_FAILED_ATTEMPTS,
+        )
+
         user = db.execute(
             select(User).where(User.username == username)
         ).scalar_one_or_none()
+
+        # 账号锁定检查
+        if user is not None and is_locked(user.locked_until):
+            raise ValueError(lock_message(user.locked_until))
+
         if user is None or not user.password_hash:
             raise ValueError("用户名或密码错误")
         if not verify_password(password, user.password_hash):
+            # 记录失败次数
+            user.failed_login_count = (user.failed_login_count or 0) + 1
+            if should_lock(user.failed_login_count):
+                user.locked_until = compute_lock_until()
+                db.commit()
+                raise ValueError(lock_message(user.locked_until))
+            db.commit()
+            remaining = MAX_FAILED_ATTEMPTS - user.failed_login_count
+            if remaining > 0:
+                raise ValueError(f"用户名或密码错误，剩余 {remaining} 次尝试机会")
             raise ValueError("用户名或密码错误")
 
+        # 登录成功：清空失败计数和锁定
+        user.failed_login_count = 0
+        user.locked_until = None
         user.last_login_at = datetime.now(timezone.utc)
         db.commit()
 

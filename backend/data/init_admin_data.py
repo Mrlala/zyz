@@ -146,6 +146,14 @@ AI_CONFIGS: list[dict] = [
         "description": "单次最大输出 token 数",
         "is_sensitive": False,
     },
+    {
+        "config_key": "translate_system_prompt",
+        "config_value": None,  # 首次初始化时填入默认 Prompt 全文
+        "value_type": "text",
+        "category": "ai",
+        "description": "翻译系统提示词（System Prompt）",
+        "is_sensitive": False,
+    },
 ]
 
 
@@ -229,6 +237,10 @@ def init_admin_data() -> None:
                 select(SystemConfig).where(SystemConfig.config_key == cfg["config_key"])
             ).scalar_one_or_none()
             if existing is None:
+                # translate_system_prompt 首次初始化时填入默认 Prompt 全文
+                if cfg["config_key"] == "translate_system_prompt" and not cfg.get("config_value"):
+                    from services.ai.prompts import DEFAULT_SYSTEM_PROMPT
+                    cfg["config_value"] = DEFAULT_SYSTEM_PROMPT
                 db.add(SystemConfig(**cfg))
                 print(f"[配置] 创建 {cfg['config_key']}")
             else:

@@ -55,6 +55,8 @@ class Translation(Base):
         Integer, ForeignKey("users.id"), nullable=True, comment="用户（游客可空）"
     )
     original_text = Column(Text, nullable=False, comment="原文")
+    # 原文哈希（SHA256），用于后台聚合统计而不暴露用户原文
+    original_text_hash = Column(String(64), nullable=True, comment="原文哈希，用于隐私保护下的统计")
     result = Column(JSON, nullable=False, comment="翻译结果，含释义、风险、建议等")
     mode = Column(
         String(10), nullable=False, default="translate", comment="模式：dict/translate"

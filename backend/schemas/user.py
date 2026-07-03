@@ -31,14 +31,14 @@ class AccountRegisterRequest(BaseModel):
     """账号密码注册请求。"""
 
     username: str = Field(..., min_length=2, max_length=20, description="用户名")
-    password: str = Field(..., min_length=6, max_length=64, description="密码")
+    password: str = Field(..., min_length=8, max_length=128, description="密码（至少 8 位，需含数字和字母）")
 
 
 class AccountLoginRequest(BaseModel):
     """账号密码登录请求。"""
 
     username: str = Field(..., min_length=2, max_length=20, description="用户名")
-    password: str = Field(..., min_length=6, max_length=64, description="密码")
+    password: str = Field(..., min_length=8, max_length=128, description="密码")
 
 
 class ProfileUpdateRequest(BaseModel):

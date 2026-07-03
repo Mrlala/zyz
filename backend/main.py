@@ -3,20 +3,32 @@
 创建 app，配置 CORS 中间件，注册路由。
 包含健康检查接口与全部业务 API（挂载于 /api 前缀下）。
 """
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.v1 import api_router
+from config import enforce_secret_key_in_production
 from core.database import init_db
 from core.middleware import OperationLogMiddleware
+from core.rate_limit import RateLimitMiddleware
+from core.sensitive_filter import load_sensitive_words
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """应用生命周期：启动时初始化数据库（建表 + 轻量迁移）。"""
+    """应用生命周期：启动时初始化数据库 + 安全检查。"""
+    # 生产环境强制校验 SECRET_KEY（弱密钥则拒绝启动）
+    enforce_secret_key_in_production()
+    # 初始化数据库（建表 + 轻量迁移）
     init_db()
+    # 预加载敏感词库
+    word_count = load_sensitive_words()
+    logger.info("敏感词过滤已启用，加载 %d 个敏感词", word_count)
     yield
 
 
@@ -35,6 +47,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 限流中间件：对翻译/提交/反馈等高频接口按 IP+设备 限流
+app.add_middleware(RateLimitMiddleware)
 
 # 操作日志中间件：记录 /api/manage/* 请求到审计日志
 app.add_middleware(OperationLogMiddleware)

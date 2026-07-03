@@ -13,6 +13,7 @@ from api.v1.manage.word_manage import router as word_manage_router
 from api.v1.manage.category import router as category_router
 from api.v1.manage.content_audit import router as content_audit_router
 from api.v1.manage.ai_config import router as ai_config_router
+from api.v1.manage.ai_candidate import router as ai_candidate_router
 from api.v1.manage.monitor import router as monitor_router
 from api.v1.manage.audit import router as audit_router
 from api.v1.manage.search import router as search_router
@@ -26,6 +27,7 @@ manage_router.include_router(word_manage_router)
 manage_router.include_router(category_router)
 manage_router.include_router(content_audit_router)
 manage_router.include_router(ai_config_router)
+manage_router.include_router(ai_candidate_router)
 manage_router.include_router(monitor_router)
 manage_router.include_router(audit_router)
 manage_router.include_router(search_router)

@@ -13,12 +13,15 @@ class CorrectionRequest(BaseModel):
     """纠错请求。
 
     :param word_id: 词条 ID
-    :param type: 纠错类型 meaning_wrong/example_wrong/outdated/other
+    :param type: 纠错类型 meaning_wrong/example_wrong/pinyin_wrong/category_wrong/risk_wrong/outdated/other
     :param content: 纠错内容描述，最长 1000 字
     """
 
     word_id: int = Field(..., description="词条 ID")
-    type: str = Field(..., description="纠错类型：meaning_wrong/example_wrong/outdated/other")
+    type: str = Field(
+        ...,
+        description="纠错类型：meaning_wrong/example_wrong/pinyin_wrong/category_wrong/risk_wrong/outdated/other"
+    )
     content: str = Field(..., min_length=1, max_length=1000, description="纠错内容描述")
 
 

@@ -82,6 +82,7 @@
               @keywordCorrect="handleKeywordCorrect"
               @keywordSubmit="handleKeywordSubmit"
               @share="handleShare"
+              @favorite="handleFavorite(msg)"
             />
           </view>
         </view>
@@ -548,8 +549,7 @@ function submitFeedback(type, comment) {
 }
 
 // 收藏/取消收藏翻译结果（D12）
-async function handleFavorite() {
-  const msg = lastAssistantMsg.value
+async function handleFavorite(msg) {
   if (!msg || !msg.translation_id) {
     uni.showToast({ title: '暂无可收藏的结果', icon: 'none' })
     return

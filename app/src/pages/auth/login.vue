@@ -119,8 +119,12 @@ async function handleSubmit() {
     uni.showToast({ title: '用户名至少 2 位', icon: 'none' })
     return
   }
-  if (!password || password.length < 6) {
-    uni.showToast({ title: '密码至少 6 位', icon: 'none' })
+  if (!password || password.length < 8) {
+    uni.showToast({ title: '密码至少 8 位', icon: 'none' })
+    return
+  }
+  if (!(/\d/.test(password) && /[a-zA-Z]/.test(password))) {
+    uni.showToast({ title: '密码需包含数字和字母', icon: 'none' })
     return
   }
   if (mode.value === 'register' && password !== confirmPassword) {

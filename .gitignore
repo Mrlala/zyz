@@ -38,6 +38,13 @@ desktop.ini
 # 日志
 *.log
 
+# TypeScript 构建缓存
+*.tsbuildinfo
+
+# 离线包产物（体积大，不纳入版本控制）
+demo-offline.zip
+demo-offline/
+
 # 非代码文件（文档只保留 docs/ 下的 md）
 *.docx
 *.txt

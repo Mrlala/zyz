@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from api.dependencies import get_current_user_required, get_device_id
 from core.database import get_db
+from core.sensitive_filter import contains_sensitive, is_sensitive_filter_enabled
 from models.feedback import Feedback
 from models.user import User
 from schemas import BaseResponse, FeedbackRequest
@@ -36,6 +37,13 @@ async def submit_feedback(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="type 取值非法，仅支持 accurate/inaccurate/outdated",
+        )
+
+    # 敏感词过滤：检查补充说明
+    if is_sensitive_filter_enabled() and request.comment and contains_sensitive(request.comment):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="反馈内容包含敏感词，请修改后重试",
         )
 
     service = FeedbackService()

@@ -47,6 +47,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '分类管理', icon: 'Files', permission: 'content:category:manage' },
       },
       {
+        path: 'content/ai-candidates',
+        name: 'AiCandidates',
+        component: () => import('@/views/content/ai-candidates.vue'),
+        meta: { title: 'AI 候选词', icon: 'MagicStick', permission: 'content:word:manage' },
+      },
+      {
         path: 'content/audit',
         name: 'ContentAudit',
         component: () => import('@/views/content/audit.vue'),

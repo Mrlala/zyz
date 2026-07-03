@@ -153,7 +153,7 @@ async def test_ai_connection(
     # 数据库优先，回退 .env
     api_key = config_map.get("deepseek_api_key") or settings.DEEPSEEK_API_KEY or ""
     api_url = config_map.get("deepseek_api_url") or settings.DEEPSEEK_API_URL or "https://api.deepseek.com/v1/chat/completions"
-    model = config_map.get("deepseek_model") or settings.DEEPSEEK_MODEL or "deepseek-chat"
+    model = config_map.get("deepseek_model") or settings.DEEPSEEK_MODEL or "deepseek-v4-flash"
 
     if not api_key:
         raise HTTPException(
@@ -312,4 +312,44 @@ async def migrate_model(
         "old_model": old_model,
         "new_model": body.target_model,
         "updated_at": cfg.updated_at.isoformat(),
+    })
+
+
+@router.get("/prompt-template", response_model=BaseResponse)
+async def get_prompt_template(
+    db: Session = Depends(get_db),
+    admin: AdminAccount = Depends(require_permission("ai:config:manage")),
+) -> BaseResponse:
+    """获取当前翻译 Prompt 模板与 AI 返回结构说明，用于规则可视化。"""
+    from services.ai.prompts import DEFAULT_SYSTEM_PROMPT, get_system_prompt
+
+    current_prompt = get_system_prompt(db)
+    # User Prompt 模板（含占位符说明）
+    user_prompt_template = (
+        "【待翻译原文】\n{text}\n\n"
+        "【已命中的词库词条】\n{matched_words}\n\n"
+        "请基于以上信息输出符合 System Prompt 约定的 JSON。"
+    )
+    # AI 返回 JSON 字段说明
+    response_fields = [
+        {"field": "translation", "type": "string", "desc": "通俗翻译（自然流畅的现代汉语）"},
+        {"field": "keywords", "type": "array", "desc": "词条列表，每项含 word/meaning/source(database|ai_temp)/confidence"},
+        {"field": "context", "type": "string", "desc": "场景识别（职场/社交/网络/技术/生活/其他）"},
+        {"field": "subtext", "type": "string", "desc": "潜台词解读"},
+        {"field": "suggestion", "type": "string", "desc": "行动建议"},
+        {"field": "suggested_reply", "type": "string", "desc": "建议回复话术（≤50字）"},
+        {"field": "risk", "type": "object", "desc": "风险判定：risk_level(low|medium|high)/risk_types[]/advice"},
+        {"field": "related", "type": "array", "desc": "相关词条列表"},
+    ]
+    # 占位符说明
+    placeholders = [
+        {"name": "{text}", "desc": "用户输入的待翻译原文"},
+        {"name": "{matched_words}", "desc": "词库命中的词条列表，格式化为「- 词条/释义/分类ID/置信度」"},
+    ]
+    return BaseResponse(data={
+        "system_prompt": current_prompt,
+        "is_default": current_prompt == DEFAULT_SYSTEM_PROMPT,
+        "user_prompt_template": user_prompt_template,
+        "placeholders": placeholders,
+        "response_fields": response_fields,
     })

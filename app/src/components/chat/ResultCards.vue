@@ -153,7 +153,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['keywordClick', 'relatedClick', 'copy', 'feedback', 'keywordFavorite', 'keywordCorrect', 'share', 'favorite'])'keywordSubmit', 'share'])
+const emit = defineEmits(['keywordClick', 'relatedClick', 'copy', 'feedback', 'keywordFavorite', 'keywordCorrect', 'share', 'favorite'])
 
 const translation = computed(() => props.result.translation || '')
 const keywords = computed(() => props.result.keywords || [])
@@ -163,6 +163,7 @@ const suggestion = computed(() => props.result.suggestion || '')
 const suggestedReply = computed(() => props.result.suggested_reply || props.result.suggestedReply || '')
 const riskLevel = computed(() => props.result.risk_level || props.result.risk || (props.result.risk && props.result.risk.risk_level) || '')
 const related = computed(() => props.result.related || [])
+const isFavorited = computed(() => !!props.result.is_translation_favorited)
 
 const modeLabel = computed(() => {
   const m = props.result.mode
@@ -197,6 +198,10 @@ function handleShare() {
     context: context.value,
     subtext: subtext.value,
   })
+}
+
+function handleFavorite() {
+  emit('favorite')
 }
 
 function handleFeedback(type) {
@@ -268,6 +273,10 @@ function handleFeedback(type) {
   &__action-text {
     font-size: 12px;
     color: $text-secondary;
+
+    &--active {
+      color: $primary;
+    }
   }
 }
 

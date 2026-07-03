@@ -8,6 +8,7 @@ from models.word import Word, WordAlias, WordContext, WordRelation
 from models.user import User, LearnRecord, Favorite
 from models.translation import Translation, TranslationFavorite
 from models.submission import Submission, CorrectionReport
+from models.ai_candidate import AiWordCandidate
 from models.feedback import Feedback
 from models.achievement import Achievement, UserAchievement, VoteRecord
 from models.admin import (
@@ -39,6 +40,8 @@ __all__ = [
     # 提交与纠错
     "Submission",
     "CorrectionReport",
+    # AI 候选词
+    "AiWordCandidate",
     # 反馈
     "Feedback",
     # 成就与投票

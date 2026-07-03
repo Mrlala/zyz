@@ -18,8 +18,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from core.database import get_db
+from core.login_lock import (
+    compute_lock_until,
+    is_locked,
+    lock_message,
+    should_lock,
+)
 from core.rbac import get_admin_permissions, get_admin_required
-from core.security import create_access_token, hash_password, verify_password
+from core.security import create_access_token, hash_password, validate_password_strength, verify_password
 from models.admin import AdminAccount, OperationLog
 from schemas import BaseResponse
 
@@ -92,11 +98,37 @@ async def admin_login(
         select(AdminAccount).where(AdminAccount.username == body.username)
     ).scalar_one_or_none()
 
+    # 账号锁定检查
+    if admin is not None and is_locked(admin.locked_until):
+        msg = lock_message(admin.locked_until)
+        _record_login_log(db, admin, body.username, False, ip, user_agent, msg)
+        raise HTTPException(
+            status_code=status.HTTP_423_LOCKED,
+            detail=msg,
+        )
+
     if admin is None or not verify_password(body.password, admin.password_hash):
+        # 记录失败次数（仅对已存在的账号）
+        if admin is not None:
+            admin.failed_login_count = (admin.failed_login_count or 0) + 1
+            if should_lock(admin.failed_login_count):
+                admin.locked_until = compute_lock_until()
+                db.commit()
+                msg = lock_message(admin.locked_until)
+                _record_login_log(db, admin, body.username, False, ip, user_agent, msg)
+                raise HTTPException(
+                    status_code=status.HTTP_423_LOCKED,
+                    detail=msg,
+                )
+            db.commit()
         _record_login_log(db, None, body.username, False, ip, user_agent, "用户名或密码错误")
+        remaining_attempts = 5 - (admin.failed_login_count if admin else 0)
+        detail = "用户名或密码错误"
+        if admin is not None and remaining_attempts > 0:
+            detail = f"用户名或密码错误，剩余 {remaining_attempts} 次尝试机会"
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="用户名或密码错误",
+            detail=detail,
         )
 
     if admin.status != "active":
@@ -105,6 +137,10 @@ async def admin_login(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="账号已禁用，请联系系统管理员",
         )
+
+    # 登录成功：清空失败计数和锁定
+    admin.failed_login_count = 0
+    admin.locked_until = None
 
     # 生成管理端 JWT：payload 含 type=admin + role_code + username（供中间件记录操作日志）
     token = create_access_token(
@@ -171,11 +207,12 @@ async def change_password(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="新密码不能与原密码相同",
         )
-    # 简单强度校验：至少含数字和字母
-    if not (any(c.isdigit() for c in body.new_password) and any(c.isalpha() for c in body.new_password)):
+    # 统一密码强度校验
+    ok, msg = validate_password_strength(body.new_password)
+    if not ok:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="密码需至少包含数字和字母",
+            detail=msg,
         )
 
     admin.password_hash = hash_password(body.new_password)
