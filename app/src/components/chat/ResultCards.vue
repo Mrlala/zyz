@@ -29,6 +29,10 @@
             {{ isFavorited ? '已收藏' : '收藏' }}
           </text>
         </view>
+        <view class="hero-card__action" @click="handleTranslationCorrect">
+          <AlertCircle :size="14" color="#6B7280" />
+          <text class="hero-card__action-text">纠错</text>
+        </view>
       </view>
     </view>
 
@@ -153,7 +157,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['keywordClick', 'relatedClick', 'copy', 'feedback', 'keywordFavorite', 'keywordCorrect', 'share', 'favorite'])
+const emit = defineEmits(['keywordClick', 'relatedClick', 'copy', 'feedback', 'keywordFavorite', 'keywordCorrect', 'keywordSubmit', 'translationCorrect', 'share', 'favorite'])
 
 const translation = computed(() => props.result.translation || '')
 const keywords = computed(() => props.result.keywords || [])
@@ -206,6 +210,14 @@ function handleFavorite() {
 
 function handleFeedback(type) {
   emit('feedback', type)
+}
+
+// 人话翻译纠错
+function handleTranslationCorrect() {
+  emit('translationCorrect', {
+    translation: translation.value,
+    original_text: props.result.original_text || ''
+  })
 }
 </script>
 
@@ -275,7 +287,7 @@ function handleFeedback(type) {
     color: $text-secondary;
 
     &--active {
-      color: $primary;
+      color: $color-primary;
     }
   }
 }

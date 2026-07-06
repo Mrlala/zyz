@@ -81,6 +81,7 @@
               @keywordFavorite="handleKeywordFavorite"
               @keywordCorrect="handleKeywordCorrect"
               @keywordSubmit="handleKeywordSubmit"
+              @translationCorrect="handleTranslationCorrect"
               @share="handleShare"
               @favorite="handleFavorite(msg)"
             />
@@ -162,6 +163,15 @@
       v-model:open="wordDrawerOpen"
       :word-id="currentWordId"
     />
+
+    <!-- AI 临时词条简版卡片 -->
+    <AiTempPopover
+      :show="aiTempPopoverOpen"
+      :keyword="currentAiTempKw"
+      @close="aiTempPopoverOpen = false"
+      @correct="handleAiTempCorrect"
+      @submit="handleKeywordSubmit"
+    />
   </view>
 </template>
 
@@ -174,6 +184,7 @@ import { useUserStore } from '@/store/modules/user'
 import ResultCards from '@/components/chat/ResultCards.vue'
 import Drawer from '@/components/chat/Drawer.vue'
 import WordDetailDrawer from '@/components/chat/WordDetailDrawer.vue'
+import AiTempPopover from '@/components/chat/AiTempPopover.vue'
 import * as feedbackApi from '@/api/feedback'
 import * as userApi from '@/api/user'
 import * as hotApi from '@/api/hot'
@@ -201,6 +212,10 @@ const hotWords = ref([])
 // 词条解析抽屉（右侧滑入）
 const wordDrawerOpen = ref(false)
 const currentWordId = ref(null)
+
+// AI 临时词条简版卡片
+const aiTempPopoverOpen = ref(false)
+const currentAiTempKw = ref(null)
 
 // 最后一条助手消息（用于反馈/收藏定位翻译结果）
 const lastAssistantMsg = computed(() => {
@@ -325,20 +340,77 @@ async function handleTranslate() {
   }
 }
 
-// 关键词点击：打开右侧词条解析抽屉
+// 关键词点击：打开右侧词条解析抽屉（ai_temp 弹简版卡片）
 function handleKeywordClick(kw) {
   const id = kw?.word_id || kw?.id
   if (!id) {
-    // AI 临时生成的词条，无 word_id，提示而非触发翻译
-    uni.showToast({
-      title: '该词条为 AI 临时生成，暂不支持查看详情',
-      icon: 'none',
-      duration: 2000
-    })
+    // AI 临时生成的词条，无 word_id，弹简版卡片
+    currentAiTempKw.value = kw
+    aiTempPopoverOpen.value = true
     return
   }
   currentWordId.value = id
   wordDrawerOpen.value = true
+}
+
+// AI 临时词条释义纠错
+function handleAiTempCorrect(kw) {
+  const translationId = lastAssistantMsg.value?.translation_id
+  if (!translationId) {
+    uni.showToast({ title: '无法定位翻译记录，请重试', icon: 'none' })
+    return
+  }
+  const wordText = kw?.word || ''
+  uni.showModal({
+    title: `纠错：${wordText}`,
+    editable: true,
+    placeholderText: '请输入正确的释义',
+    success: (r) => {
+      if (r.confirm && r.content) {
+        correctionApi.submitCorrection({
+          translation_id: translationId,
+          type: 'ai_meaning_wrong',
+          target_type: 'ai_meaning',
+          ai_content: kw.meaning || kw.definition || '',
+          content: r.content
+        }).then(() => {
+          uni.showToast({ title: '已提交，感谢纠错', icon: 'success' })
+          aiTempPopoverOpen.value = false
+        }).catch(() => {
+          uni.showToast({ title: '提交失败', icon: 'none' })
+        })
+      }
+    }
+  })
+}
+
+// 人话翻译纠错（Hero Card 纠错按钮）
+function handleTranslationCorrect(payload) {
+  const translationId = lastAssistantMsg.value?.translation_id
+  if (!translationId) {
+    uni.showToast({ title: '无法定位翻译记录，请重试', icon: 'none' })
+    return
+  }
+  uni.showModal({
+    title: '纠错：人话翻译',
+    editable: true,
+    placeholderText: '请描述翻译的问题或给出正确翻译',
+    success: (r) => {
+      if (r.confirm && r.content) {
+        correctionApi.submitCorrection({
+          translation_id: translationId,
+          type: 'ai_translation_wrong',
+          target_type: 'ai_translation',
+          ai_content: payload.translation,
+          content: r.content
+        }).then(() => {
+          uni.showToast({ title: '已提交，感谢纠错', icon: 'success' })
+        }).catch(() => {
+          uni.showToast({ title: '提交失败', icon: 'none' })
+        })
+      }
+    }
+  })
 }
 
 // 词条收藏（ResultCards 命中词条的收藏按钮）

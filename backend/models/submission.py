@@ -68,14 +68,17 @@ class CorrectionReport(Base):
     __tablename__ = "correction_reports"
 
     id = Column(Integer, primary_key=True, autoincrement=True, comment="主键")
-    word_id = Column(Integer, ForeignKey("words.id"), nullable=False, comment="被纠错词条")
+    word_id = Column(Integer, ForeignKey("words.id"), nullable=True, comment="被纠错词条（AI 翻译纠错时为空）")
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, comment="提交者")
     type = Column(
         String(20),
         nullable=False,
-        comment="类型：meaning_wrong/example_wrong/pinyin_wrong/category_wrong/risk_wrong/outdated/other",
+        comment="类型：meaning_wrong/example_wrong/pinyin_wrong/category_wrong/risk_wrong/outdated/other/ai_meaning_wrong/ai_translation_wrong",
     )
     content = Column(Text, nullable=False, comment="纠错内容说明")
+    translation_id = Column(Integer, ForeignKey("translations.id"), nullable=True, comment="关联翻译记录（AI 翻译纠错时填）")
+    ai_content = Column(Text, nullable=True, comment="AI 原始内容（释义或翻译）")
+    target_type = Column(String(20), default="word", nullable=False, comment="纠错目标：word/ai_meaning/ai_translation")
     status = Column(
         String(10),
         nullable=False,

@@ -61,7 +61,12 @@
           </div>
 
           <el-table :data="corrections" v-loading="corrLoading" border stripe style="margin-top: 12px">
-            <el-table-column prop="word" label="被纠错词条" min-width="120" />
+            <el-table-column label="被纠错词条" min-width="120">
+              <template #default="{ row }">
+                <span v-if="row.word">{{ row.word }}</span>
+                <el-tag v-else type="warning" size="small">AI 翻译纠错</el-tag>
+              </template>
+            </el-table-column>
             <el-table-column label="纠错类型" width="120">
               <template #default="{ row }">{{ correctionTypeLabel(row.type) }}</template>
             </el-table-column>
@@ -203,6 +208,8 @@ function correctionTypeLabel(t: string) {
     risk_wrong: '风险标注错误',
     outdated: '已过时',
     other: '其他',
+    ai_meaning_wrong: 'AI 释义错误',
+    ai_translation_wrong: 'AI 翻译错误',
   }[t] || t
 }
 

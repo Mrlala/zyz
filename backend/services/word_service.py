@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from models.category import Category
 from models.submission import CorrectionReport
+from models.translation import Translation
 from models.word import Word, WordAlias, WordContext, WordRelation, WordEvolution, WordScene
 
 
@@ -259,38 +260,60 @@ class WordService:
 
     def submit_correction(
         self,
-        word_id: int,
         type: str,
         content: str,
         user_id: int,
         db: Session,
+        word_id: int | None = None,
+        translation_id: int | None = None,
+        ai_content: str | None = None,
+        target_type: str = "word",
     ) -> CorrectionReport:
-        """提交词条纠错报告。
+        """提交纠错报告（支持词条纠错和 AI 翻译纠错）。
 
-        :param word_id: 被纠错词条 ID
-        :param type: 纠错类型 meaning_wrong/example_wrong/pinyin_wrong/category_wrong/risk_wrong/outdated/other
+        :param word_id: 被纠错词条 ID（词条纠错必填）
+        :param translation_id: 翻译记录 ID（AI 翻译纠错必填）
+        :param type: 纠错类型
         :param content: 纠错内容说明
+        :param ai_content: AI 原始内容
+        :param target_type: 纠错目标 word/ai_meaning/ai_translation
         :param user_id: 提交者 ID
         :param db: 数据库会话
         :return: 纠错报告对象
-        :raises ValueError: 词条不存在
+        :raises ValueError: 词条/翻译记录不存在
         """
-        word = db.get(Word, word_id)
-        if word is None or word.deleted_at is not None:
-            raise ValueError("词条不存在")
-
-        allowed = (
-            "meaning_wrong", "example_wrong", "pinyin_wrong",
-            "category_wrong", "risk_wrong", "outdated", "other",
-        )
-        if type not in allowed:
-            raise ValueError("纠错类型非法")
+        # 词条纠错：校验词条存在
+        if target_type == "word":
+            if not word_id:
+                raise ValueError("词条纠错必须提供 word_id")
+            word = db.get(Word, word_id)
+            if word is None or word.deleted_at is not None:
+                raise ValueError("词条不存在")
+            allowed = (
+                "meaning_wrong", "example_wrong", "pinyin_wrong",
+                "category_wrong", "risk_wrong", "outdated", "other",
+            )
+            if type not in allowed:
+                raise ValueError("纠错类型非法")
+        # AI 翻译纠错：校验翻译记录存在
+        else:
+            if not translation_id:
+                raise ValueError("AI 翻译纠错必须提供 translation_id")
+            translation = db.get(Translation, translation_id)
+            if translation is None:
+                raise ValueError("翻译记录不存在")
+            allowed = ("ai_meaning_wrong", "ai_translation_wrong")
+            if type not in allowed:
+                raise ValueError("纠错类型非法")
 
         report = CorrectionReport(
             word_id=word_id,
             user_id=user_id,
             type=type,
             content=content,
+            translation_id=translation_id,
+            ai_content=ai_content,
+            target_type=target_type,
             status="pending",
         )
         db.add(report)

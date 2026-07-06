@@ -66,6 +66,10 @@ def _run_migrations() -> None:
         ("correction_reports", "reviewer_id", "INTEGER"),
         ("correction_reports", "reviewed_at", "DATETIME"),
         ("correction_reports", "review_comment", "TEXT"),
+        # AI 翻译纠错：关联翻译记录 + AI 原始内容 + 目标类型
+        ("correction_reports", "translation_id", "INTEGER"),
+        ("correction_reports", "ai_content", "TEXT"),
+        ("correction_reports", "target_type", "TEXT"),
         ("words", "created_by_admin_id", "INTEGER"),
         # 词条详情升级：增加词源字段
         ("words", "origin", "TEXT"),
