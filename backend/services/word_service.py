@@ -317,8 +317,12 @@ class WordService:
             status="pending",
         )
         db.add(report)
-        db.commit()
-        db.refresh(report)
+        try:
+            db.commit()
+            db.refresh(report)
+        except Exception as exc:
+            db.rollback()
+            raise ValueError(f"保存纠错报告失败：{exc}")
         return report
 
     @staticmethod

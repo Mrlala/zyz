@@ -63,6 +63,9 @@ async def submit_correction(
             detail="纠错内容包含敏感词，请修改后重试",
         )
 
+    import logging
+    logger = logging.getLogger(__name__)
+
     service = WordService()
     try:
         report = service.submit_correction(
@@ -81,7 +84,13 @@ async def submit_correction(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
         if "非法" in msg:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=msg)
+        if "保存纠错报告失败" in msg:
+            logger.error("纠错保存失败: %s", msg)
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="提交失败，请稍后重试")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=msg)
+    except Exception as exc:
+        logger.error("纠错接口未预期异常: %s", exc, exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="服务器内部错误，请稍后重试")
 
     return BaseResponse(data={
         "correction_id": report.id,

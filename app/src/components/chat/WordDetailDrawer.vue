@@ -353,6 +353,10 @@ function handleSectionCorrect(type, label) {
 
   if (isAiTemp.value) {
     // AI 临时词条释义纠错
+    if (!props.translationId) {
+      uni.showToast({ title: '无法定位翻译记录，请重新翻译后重试', icon: 'none' })
+      return
+    }
     pendingCorrect.value = {
       translation_id: props.translationId,
       type: 'ai_meaning_wrong',
@@ -391,6 +395,10 @@ function handleOtherCorrect() {
 
   if (isAiTemp.value) {
     // AI 临时词条只有一种纠错类型
+    if (!props.translationId) {
+      uni.showToast({ title: '无法定位翻译记录，请重新翻译后重试', icon: 'none' })
+      return
+    }
     correctModalOptions.value = []
     correctModalOriginal.value = detail.value.meaning || detail.value.definition || ''
     pendingCorrect.value = {
