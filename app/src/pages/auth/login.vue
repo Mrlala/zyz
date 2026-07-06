@@ -40,7 +40,7 @@
           class="auth-field__input"
           v-model="form.password"
           password
-          placeholder="至少 6 位"
+          :placeholder="mode === 'register' ? '至少 8 位，含数字和字母' : '请输入密码'"
           maxlength="64"
         />
       </view>
