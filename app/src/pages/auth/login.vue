@@ -28,7 +28,7 @@
         <input
           class="auth-field__input"
           v-model="form.username"
-          placeholder="2-20 位字符"
+          :placeholder="mode === 'register' ? '2-20 位字符' : '请输入用户名'"
           maxlength="20"
         />
       </view>
