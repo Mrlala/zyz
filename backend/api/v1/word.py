@@ -89,7 +89,7 @@ async def list_words(
             "pinyin": w.pinyin,
             "summary": w.meaning,
             "category": (
-                {"id": categories[w.category_id].id, "name": categories[w.category_id].name}
+                categories[w.category_id].name
                 if w.category_id and w.category_id in categories
                 else None
             ),
