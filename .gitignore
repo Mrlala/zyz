@@ -55,3 +55,15 @@ demo-offline/
 # 设计稿目录（参考资源，非代码）
 zhongyizhong-chatui/
 zhongyizhong-ui-redesign/
+
+# 临时调试脚本（根目录下划线开头）
+_*.py
+_*.js
+_*.ps1
+test_final.py
+demo_test.png
+
+# 根目录 package.json（仅给本地工具用，非项目依赖）
+/package.json
+/package-lock.json
+
