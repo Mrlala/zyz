@@ -12,6 +12,7 @@
       <view class="word-drawer__header">
         <view class="word-drawer__title-row">
           <text class="word-drawer__word">{{ detail.word }}</text>
+          <view v-if="isAiTemp" class="word-drawer__ai-badge">AI</view>
           <text v-if="detail.pinyin" class="word-drawer__pinyin">{{ detail.pinyin }}</text>
           <view v-if="detail.pinyin" class="word-drawer__correct word-drawer__correct--inline" @click.stop="handleSectionCorrect('pinyin_wrong', '拼音')">
             <AlertCircle :size="12" color="#D1D5DB" />
@@ -23,6 +24,11 @@
             <AlertCircle :size="12" color="#D1D5DB" />
           </view>
           <view v-if="riskLevelText" class="word-drawer__tag" :class="`word-drawer__tag--${detail.risk_level}`">{{ riskLevelText }}</view>
+        </view>
+        <!-- AI 临时词条来源说明 -->
+        <view v-if="isAiTemp" class="word-drawer__source-note">
+          <Sparkles :size="12" color="#F59E0B" />
+          <text>AI 临时生成，未入词库</text>
         </view>
         <view class="word-drawer__close" @click="handleClose">
           <X :size="20" color="#9CA3AF" />
@@ -154,7 +160,7 @@
       </view>
 
       <!-- 使用频率 -->
-      <view class="word-drawer__section">
+      <view v-if="!isAiTemp" class="word-drawer__section">
         <view class="word-drawer__section-title">
           <BarChart :size="14" color="#9CA3AF" />
           <text>使用频率</text>
@@ -179,7 +185,7 @@
 
     <!-- 底部操作栏 -->
     <view v-if="detail" class="word-drawer__footer">
-      <view class="word-drawer__footer-btn" @click="handleFavorite">
+      <view v-if="!isAiTemp" class="word-drawer__footer-btn" @click="handleFavorite">
         <Heart
           :size="16"
           :color="detail.is_favorited ? '#FE2C55' : '#6B7280'"
@@ -187,11 +193,26 @@
         />
         <text class="word-drawer__footer-btn-text">{{ detail.is_favorited ? '已收藏' : '收藏' }}</text>
       </view>
-      <view class="word-drawer__footer-btn word-drawer__footer-btn--ghost" @click="handleOtherCorrect">
+      <view class="word-drawer__footer-btn" :class="{ 'word-drawer__footer-btn--ghost': !isAiTemp }" @click="handleOtherCorrect">
         <AlertCircle :size="16" color="#6B7280" />
         <text class="word-drawer__footer-btn-text">其他问题</text>
       </view>
+      <view v-if="isAiTemp" class="word-drawer__footer-btn word-drawer__footer-btn--primary" @click="handleSubmitToDict">
+        <Send :size="16" color="#FFFFFF" />
+        <text class="word-drawer__footer-btn-text word-drawer__footer-btn-text--white">提交入词库</text>
+      </view>
     </view>
+
+    <!-- 纠错弹窗 -->
+    <CorrectModal
+      v-model:open="correctModalOpen"
+      :title="correctModalTitle"
+      :subtitle="correctModalSubtitle"
+      :placeholder="correctModalPlaceholder"
+      :options="correctModalOptions"
+      :original-content="correctModalOriginal"
+      @confirm="handleCorrectConfirm"
+    />
   </view>
 </template>
 
@@ -199,22 +220,39 @@
 import { ref, watch, computed } from 'vue'
 import {
   X, BookOpen, Quote, Layers, Tag, ShieldAlert, Hash,
-  Heart, AlertCircle, Sparkles, TrendingUp, Compass, BarChart
+  Heart, AlertCircle, Sparkles, TrendingUp, Compass, BarChart, Send
 } from 'lucide-vue-next'
 import * as wordApi from '@/api/word'
 import * as correctionApi from '@/api/correction'
 import { useUserStore } from '@/store/modules/user'
+import CorrectModal from './CorrectModal.vue'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
-  wordId: { type: Number, default: null }
+  wordId: { type: Number, default: null },
+  // AI 临时词条模式
+  mode: { type: String, default: 'database' }, // 'database' | 'ai_temp'
+  aiTempData: { type: Object, default: () => ({}) },
+  // 外部传入的 translation_id（AI 纠错时需要）
+  translationId: { type: Number, default: null }
 })
-const emit = defineEmits(['update:open', 'favorite', 'correct'])
+const emit = defineEmits(['update:open', 'favorite', 'correct', 'submit'])
 
 const userStore = useUserStore()
 const detail = ref(null)
 const loading = ref(false)
 const showMask = ref(false)
+
+// 纠错弹窗状态
+const correctModalOpen = ref(false)
+const correctModalTitle = ref('')
+const correctModalSubtitle = ref('')
+const correctModalPlaceholder = ref('')
+const correctModalOptions = ref([])
+const correctModalOriginal = ref('')
+const pendingCorrect = ref(null) // 暂存待提交的纠错参数
+
+const isAiTemp = computed(() => props.mode === 'ai_temp')
 
 const riskLevelText = computed(() => {
   const r = detail.value?.risk_level
@@ -234,7 +272,7 @@ const riskColor = computed(() => {
 watch(
   () => props.wordId,
   async (id) => {
-    if (id && props.open) {
+    if (id && props.open && !isAiTemp.value) {
       await fetchDetail(id)
     }
   }
@@ -246,15 +284,27 @@ watch(
   (isOpen) => {
     if (isOpen) {
       showMask.value = true
-      if (props.wordId && !detail.value) {
+      if (isAiTemp.value) {
+        // AI 临时模式：直接用传入数据
+        detail.value = { ...props.aiTempData }
+      } else if (props.wordId && !detail.value) {
         fetchDetail(props.wordId)
       }
     } else {
-      // 延迟隐藏 mask，等动画结束
       setTimeout(() => {
         showMask.value = false
         detail.value = null
       }, 300)
+    }
+  }
+)
+
+// 监听 aiTempData 变化（同一抽屉打开时切换词条）
+watch(
+  () => props.aiTempData,
+  (data) => {
+    if (isAiTemp.value && props.open) {
+      detail.value = { ...data }
     }
   }
 )
@@ -291,71 +341,100 @@ async function handleFavorite() {
   }
 }
 
-// section 级纠错：预设类型，直接弹输入框
+// section 级纠错：打开自定义弹窗
 function handleSectionCorrect(type, label) {
   if (!detail.value) return
-  const wordId = detail.value.id
   const wordText = detail.value.word
-  uni.showModal({
-    title: `纠错：${wordText} - ${label}`,
-    editable: true,
-    placeholderText: `请描述${label}的正确内容或问题`,
-    success: (r) => {
-      if (r.confirm && r.content) {
-        correctionApi.submitCorrection({
-          word_id: wordId,
-          type,
-          content: r.content
-        }).then(() => {
-          uni.showToast({ title: '已提交，感谢纠错', icon: 'success' })
-          emit('correct', { word_id: wordId, type, content: r.content })
-        }).catch(() => {
-          uni.showToast({ title: '提交失败', icon: 'none' })
-        })
-      }
+  correctModalTitle.value = `纠错：${wordText} · ${label}`
+  correctModalSubtitle.value = isAiTemp.value ? 'AI 临时生成内容，欢迎指出错误' : ''
+  correctModalPlaceholder.value = `请描述${label}的正确内容或问题`
+  correctModalOptions.value = []
+  correctModalOriginal.value = getSectionContent(label)
+
+  if (isAiTemp.value) {
+    // AI 临时词条释义纠错
+    pendingCorrect.value = {
+      translation_id: props.translationId,
+      type: 'ai_meaning_wrong',
+      target_type: 'ai_meaning',
+      ai_content: correctModalOriginal.value
     }
+  } else {
+    // 词库词条 section 纠错
+    pendingCorrect.value = {
+      word_id: detail.value.id,
+      type,
+      target_type: 'word'
+    }
+  }
+  correctModalOpen.value = true
+}
+
+function getSectionContent(label) {
+  if (!detail.value) return ''
+  if (label === '释义') return detail.value.definition || detail.value.meaning || ''
+  if (label === '出处') return detail.value.origin || ''
+  if (label === '示例') return detail.value.example || ''
+  if (label === '拼音') return detail.value.pinyin || ''
+  if (label === '分类') return detail.value.category_name || ''
+  if (label === '风险标注') return detail.value.risk_advice || ''
+  return ''
+}
+
+// 其他问题纠错：先选类型再输入
+function handleOtherCorrect() {
+  if (!detail.value) return
+  const wordText = detail.value.word
+  correctModalTitle.value = `纠错：${wordText}`
+  correctModalSubtitle.value = isAiTemp.value ? 'AI 临时生成内容，欢迎指出错误' : '请选择问题类型并描述具体问题'
+  correctModalPlaceholder.value = '请描述问题'
+
+  if (isAiTemp.value) {
+    // AI 临时词条只有一种纠错类型
+    correctModalOptions.value = []
+    correctModalOriginal.value = detail.value.meaning || detail.value.definition || ''
+    pendingCorrect.value = {
+      translation_id: props.translationId,
+      type: 'ai_meaning_wrong',
+      target_type: 'ai_meaning',
+      ai_content: correctModalOriginal.value
+    }
+  } else {
+    correctModalOptions.value = [
+      { label: '已过时', value: 'outdated' },
+      { label: '其他问题', value: 'other' }
+    ]
+    correctModalOriginal.value = ''
+    pendingCorrect.value = {
+      word_id: detail.value.id,
+      target_type: 'word'
+    }
+  }
+  correctModalOpen.value = true
+}
+
+// 纠错弹窗确认
+function handleCorrectConfirm({ content, type }) {
+  if (!pendingCorrect.value) return
+  const payload = { ...pendingCorrect.value, content }
+  if (type) payload.type = type
+
+  correctionApi.submitCorrection(payload).then(() => {
+    uni.showToast({ title: '已提交，感谢纠错', icon: 'success' })
+    emit('correct', payload)
+  }).catch(() => {
+    uni.showToast({ title: '提交失败', icon: 'none' })
   })
 }
 
-// 其他问题纠错：过时 / 其他
-function handleOtherCorrect() {
+// AI 临时词条提交入词库
+function handleSubmitToDict() {
   if (!detail.value) return
-  const wordId = detail.value.id
-  const wordText = detail.value.word
-  const otherTypes = [
-    { label: '已过时', value: 'outdated' },
-    { label: '其他问题', value: 'other' }
-  ]
-  uni.showActionSheet({
-    itemList: otherTypes.map(t => t.label),
-    success: (res) => {
-      const type = otherTypes[res.tapIndex].value
-      uni.showModal({
-        title: `纠错：${wordText}`,
-        editable: true,
-        placeholderText: '请描述问题',
-        success: (r) => {
-          if (r.confirm && r.content) {
-            correctionApi.submitCorrection({
-              word_id: wordId,
-              type,
-              content: r.content
-            }).then(() => {
-              uni.showToast({ title: '已提交，感谢纠错', icon: 'success' })
-              emit('correct', { word_id: wordId, type, content: r.content })
-            }).catch(() => {
-              uni.showToast({ title: '提交失败', icon: 'none' })
-            })
-          }
-        }
-      })
-    }
-  })
+  emit('submit', detail.value)
 }
 
 function handleRelatedClick(item) {
   if (item.word_id) {
-    // 切换抽屉内容到相关词条
     fetchDetail(item.word_id)
     emit('update:wordId', item.word_id)
   }
@@ -427,6 +506,18 @@ function handleRelatedClick(item) {
     color: $text-primary;
   }
 
+  &__ai-badge {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 600;
+    color: $color-warning;
+    background-color: rgba(245, 158, 11, 0.12);
+    border-radius: 4px;
+    padding: 2px 6px;
+    line-height: 1.4;
+    align-self: center;
+  }
+
   &__pinyin {
     font-size: 13px;
     color: $text-tertiary;
@@ -454,6 +545,15 @@ function handleRelatedClick(item) {
       background-color: rgba(239, 68, 68, 0.12);
       color: #EF4444;
     }
+  }
+
+  &__source-note {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: $color-warning;
+    margin-top: 10px;
   }
 
   &__close {
@@ -601,15 +701,6 @@ function handleRelatedClick(item) {
     line-height: 1.4;
   }
 
-  &__stats {
-    display: flex;
-    gap: 16px;
-    padding: 16px 0;
-    font-size: 12px;
-    color: $text-tertiary;
-    border-top: 1px solid $border-color-light;
-  }
-
   /* ============ 演化历程时间线 ============ */
   &__timeline {
     position: relative;
@@ -729,24 +820,29 @@ function handleRelatedClick(item) {
     bottom: 0;
     left: 0;
     right: 0;
-    height: 56px;
+    min-height: 56px;
     background-color: $bg-card;
     border-top: 1px solid $border-color-light;
     display: flex;
     align-items: center;
-    padding: 0 16px;
-    gap: 12px;
+    padding: 10px 16px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+    gap: 10px;
   }
 
   &__footer-btn {
     flex: 1;
-    height: 36px;
-    border-radius: 8px;
+    height: 38px;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
     background-color: $bg-sunken;
+
+    &:active {
+      opacity: 0.7;
+    }
 
     &--primary {
       background-color: $color-primary;

@@ -158,19 +158,25 @@
       @newChat="handleNewChat"
     />
 
-    <!-- 右侧词条解析抽屉 -->
+    <!-- 右侧词条解析抽屉（支持 database / ai_temp 两种模式） -->
     <WordDetailDrawer
       v-model:open="wordDrawerOpen"
       :word-id="currentWordId"
+      :mode="currentDrawerMode"
+      :ai-temp-data="currentAiTempData"
+      :translation-id="currentTranslationId"
+      @submit="handleKeywordSubmit"
     />
 
-    <!-- AI 临时词条简版卡片 -->
-    <AiTempPopover
-      :show="aiTempPopoverOpen"
-      :keyword="currentAiTempKw"
-      @close="aiTempPopoverOpen = false"
-      @correct="handleAiTempCorrect"
-      @submit="handleKeywordSubmit"
+    <!-- 纠错弹窗（Hero Card 翻译纠错 + 命中词条纠错） -->
+    <CorrectModal
+      v-model:open="correctModalOpen"
+      :title="correctModalTitle"
+      :subtitle="correctModalSubtitle"
+      :placeholder="correctModalPlaceholder"
+      :options="correctModalOptions"
+      :original-content="correctModalOriginal"
+      @confirm="handleCorrectConfirm"
     />
   </view>
 </template>
@@ -184,7 +190,7 @@ import { useUserStore } from '@/store/modules/user'
 import ResultCards from '@/components/chat/ResultCards.vue'
 import Drawer from '@/components/chat/Drawer.vue'
 import WordDetailDrawer from '@/components/chat/WordDetailDrawer.vue'
-import AiTempPopover from '@/components/chat/AiTempPopover.vue'
+import CorrectModal from '@/components/chat/CorrectModal.vue'
 import * as feedbackApi from '@/api/feedback'
 import * as userApi from '@/api/user'
 import * as hotApi from '@/api/hot'
@@ -209,13 +215,21 @@ const scrollAnchor = ref('')
 // 空状态热词推荐
 const hotWords = ref([])
 
-// 词条解析抽屉（右侧滑入）
+// 词条解析抽屉（右侧滑入，支持 database / ai_temp 两种模式）
 const wordDrawerOpen = ref(false)
 const currentWordId = ref(null)
+const currentDrawerMode = ref('database') // 'database' | 'ai_temp'
+const currentAiTempData = ref({})
+const currentTranslationId = ref(null)
 
-// AI 临时词条简版卡片
-const aiTempPopoverOpen = ref(false)
-const currentAiTempKw = ref(null)
+// 纠错弹窗（Hero Card 翻译纠错 + 命中词条纠错）
+const correctModalOpen = ref(false)
+const correctModalTitle = ref('')
+const correctModalSubtitle = ref('')
+const correctModalPlaceholder = ref('')
+const correctModalOptions = ref([])
+const correctModalOriginal = ref('')
+const pendingCorrect = ref(null)
 
 // 最后一条助手消息（用于反馈/收藏定位翻译结果）
 const lastAssistantMsg = computed(() => {
@@ -340,77 +354,43 @@ async function handleTranslate() {
   }
 }
 
-// 关键词点击：打开右侧词条解析抽屉（ai_temp 弹简版卡片）
+// 关键词点击：统一打开右侧词条解析抽屉
+// - 有 word_id：database 模式，抽屉拉 API 详情
+// - 无 word_id：ai_temp 模式，抽屉直接展示传入数据
 function handleKeywordClick(kw) {
   const id = kw?.word_id || kw?.id
-  if (!id) {
-    // AI 临时生成的词条，无 word_id，弹简版卡片
-    currentAiTempKw.value = kw
-    aiTempPopoverOpen.value = true
-    return
+  if (id) {
+    currentDrawerMode.value = 'database'
+    currentWordId.value = id
+    currentAiTempData.value = {}
+  } else {
+    currentDrawerMode.value = 'ai_temp'
+    currentWordId.value = null
+    currentAiTempData.value = { ...kw }
+    currentTranslationId.value = lastAssistantMsg.value?.translation_id || null
   }
-  currentWordId.value = id
   wordDrawerOpen.value = true
 }
 
-// AI 临时词条释义纠错
-function handleAiTempCorrect(kw) {
-  const translationId = lastAssistantMsg.value?.translation_id
-  if (!translationId) {
-    uni.showToast({ title: '无法定位翻译记录，请重试', icon: 'none' })
-    return
-  }
-  const wordText = kw?.word || ''
-  uni.showModal({
-    title: `纠错：${wordText}`,
-    editable: true,
-    placeholderText: '请输入正确的释义',
-    success: (r) => {
-      if (r.confirm && r.content) {
-        correctionApi.submitCorrection({
-          translation_id: translationId,
-          type: 'ai_meaning_wrong',
-          target_type: 'ai_meaning',
-          ai_content: kw.meaning || kw.definition || '',
-          content: r.content
-        }).then(() => {
-          uni.showToast({ title: '已提交，感谢纠错', icon: 'success' })
-          aiTempPopoverOpen.value = false
-        }).catch(() => {
-          uni.showToast({ title: '提交失败', icon: 'none' })
-        })
-      }
-    }
-  })
-}
-
-// 人话翻译纠错（Hero Card 纠错按钮）
+// 人话翻译纠错（Hero Card 纠错按钮）→ 弹 CorrectModal
 function handleTranslationCorrect(payload) {
   const translationId = lastAssistantMsg.value?.translation_id
   if (!translationId) {
     uni.showToast({ title: '无法定位翻译记录，请重试', icon: 'none' })
     return
   }
-  uni.showModal({
-    title: '纠错：人话翻译',
-    editable: true,
-    placeholderText: '请描述翻译的问题或给出正确翻译',
-    success: (r) => {
-      if (r.confirm && r.content) {
-        correctionApi.submitCorrection({
-          translation_id: translationId,
-          type: 'ai_translation_wrong',
-          target_type: 'ai_translation',
-          ai_content: payload.translation,
-          content: r.content
-        }).then(() => {
-          uni.showToast({ title: '已提交，感谢纠错', icon: 'success' })
-        }).catch(() => {
-          uni.showToast({ title: '提交失败', icon: 'none' })
-        })
-      }
-    }
-  })
+  correctModalTitle.value = '纠错：人话翻译'
+  correctModalSubtitle.value = 'AI 翻译仅供参考，欢迎指出错误'
+  correctModalPlaceholder.value = '请描述翻译的问题或给出正确翻译'
+  correctModalOptions.value = []
+  correctModalOriginal.value = payload.translation || ''
+  pendingCorrect.value = {
+    translation_id: translationId,
+    type: 'ai_translation_wrong',
+    target_type: 'ai_translation',
+    ai_content: payload.translation || ''
+  }
+  correctModalOpen.value = true
 }
 
 // 词条收藏（ResultCards 命中词条的收藏按钮）
@@ -433,7 +413,7 @@ async function handleKeywordFavorite(kw) {
   }
 }
 
-// 词条纠错（ResultCards 命中词条的纠错按钮）
+// 词条纠错（ResultCards 命中词条的纠错按钮）→ 弹 CorrectModal（带类型选择）
 function handleKeywordCorrect(kw) {
   const id = kw?.word_id || kw?.id
   if (!id) {
@@ -441,7 +421,10 @@ function handleKeywordCorrect(kw) {
     return
   }
   const wordText = kw?.word || ''
-  const correctionTypes = [
+  correctModalTitle.value = `纠错：${wordText}`
+  correctModalSubtitle.value = '请选择问题类型并描述具体问题'
+  correctModalPlaceholder.value = '请描述正确的内容或问题'
+  correctModalOptions.value = [
     { label: '释义错误', value: 'meaning_wrong' },
     { label: '例句/出处错误', value: 'example_wrong' },
     { label: '拼音错误', value: 'pinyin_wrong' },
@@ -450,29 +433,24 @@ function handleKeywordCorrect(kw) {
     { label: '已过时', value: 'outdated' },
     { label: '其他', value: 'other' }
   ]
-  uni.showActionSheet({
-    itemList: correctionTypes.map(t => t.label),
-    success: (res) => {
-      const type = correctionTypes[res.tapIndex].value
-      uni.showModal({
-        title: `纠错：${wordText}`,
-        editable: true,
-        placeholderText: '请描述正确的内容或问题',
-        success: (r) => {
-          if (r.confirm && r.content) {
-            correctionApi.submitCorrection({
-              word_id: id,
-              type,
-              content: r.content
-            }).then(() => {
-              uni.showToast({ title: '已提交，感谢纠错', icon: 'success' })
-            }).catch(() => {
-              uni.showToast({ title: '提交失败', icon: 'none' })
-            })
-          }
-        }
-      })
-    }
+  correctModalOriginal.value = kw?.current_meaning || kw?.meaning || kw?.definition || ''
+  pendingCorrect.value = {
+    word_id: id,
+    target_type: 'word'
+  }
+  correctModalOpen.value = true
+}
+
+// 纠错弹窗确认提交
+function handleCorrectConfirm({ content, type }) {
+  if (!pendingCorrect.value) return
+  const payload = { ...pendingCorrect.value, content }
+  if (type) payload.type = type
+
+  correctionApi.submitCorrection(payload).then(() => {
+    uni.showToast({ title: '已提交，感谢纠错', icon: 'success' })
+  }).catch(() => {
+    uni.showToast({ title: '提交失败', icon: 'none' })
   })
 }
 
