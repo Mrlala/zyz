@@ -58,12 +58,12 @@ export const useUserStore = defineStore('user', () => {
     const data = await userApi.loginAccount({ username, password })
     token.value = data.token
     userInfo.value = { user_id: data.user_id }
+    persist() // 先持久化 token，后续请求才能带上鉴权头
     try {
       await fetchProfile()
     } catch (e) {
       console.warn('登录后拉取 profile 失败，稍后重试', e)
     }
-    persist()
     return data
   }
 
