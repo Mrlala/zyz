@@ -110,7 +110,11 @@ const origin = computed(() => props.word.origin || '')
 
 // 分类文案
 const categoryText = computed(() => {
-  return props.word.category || props.word.category_name || ''
+  const cat = props.word.category
+  if (cat && typeof cat === 'object') {
+    return cat.name || ''
+  }
+  return cat || props.word.category_name || ''
 })
 
 // 风险等级（兼容 risk / risk_level）

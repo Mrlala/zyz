@@ -50,7 +50,7 @@
               <text class="fav-card__word">{{ word.word || word.name }}</text>
               <text class="fav-card__definition">{{ word.definition || word.meaning || word.summary || '' }}</text>
               <view class="fav-card__meta">
-                <text v-if="word.category_name || word.category" class="fav-card__cat">{{ word.category_name || word.category }}</text>
+                <text v-if="getCategoryText(word)" class="fav-card__cat">{{ getCategoryText(word) }}</text>
                 <text class="fav-card__time">{{ formatTime(word.favorited_at || word.created_at) }}</text>
               </view>
             </view>
@@ -144,6 +144,14 @@ const tabs = [
   { label: '词条', value: 'words' },
   { label: '翻译结果', value: 'translate' }
 ]
+
+function getCategoryText(word) {
+  const cat = word.category
+  if (cat && typeof cat === 'object') {
+    return cat.name || ''
+  }
+  return cat || word.category_name || ''
+}
 
 onLoad(() => {
   try {

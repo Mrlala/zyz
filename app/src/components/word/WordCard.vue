@@ -93,7 +93,11 @@ const isFavorited = computed(() => {
 
 // 分类文案
 const categoryText = computed(() => {
-  return props.word.category || props.word.category_name || ''
+  const cat = props.word.category
+  if (cat && typeof cat === 'object') {
+    return cat.name || ''
+  }
+  return cat || props.word.category_name || ''
 })
 
 // 解释文案（截断展示，由 CSS 控制行数）
